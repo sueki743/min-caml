@@ -135,13 +135,14 @@ exp: /* (* 一般の式 (caml2html: parser_exp) *) */
     { Array($2, $3) }
 | error
     { failwith
-	(Printf.sprintf "parse error near characters %d-%d"
+	(Printf.sprintf "parse error near line %d characters %d-%d"
+	   ((Parsing.symbol_start_pos ()).pos_lnum)
 	   (Parsing.symbol_start ())
 	   (Parsing.symbol_end ())) }
 
 fundef:
 | IDENT formal_args EQUAL exp
-    { { name = addtyp $1; args = $2; body = $4 } }
+    { { name = addtyp $1; args = $2; body = $4 } }/*(*addtypeは変数に型変数を追加*)*/
 
 formal_args:
 | IDENT formal_args

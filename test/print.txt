@@ -1,0 +1,14 @@
+Let
+ Tu2 App
+  (print_int)
+  Int 123
+ Let
+  Tu1  App
+   (print_int)
+   Neg
+    Int 456
+  App
+   (print_int)
+   Add
+    Int 789
+    Int 0

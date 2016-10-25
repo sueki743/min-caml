@@ -15,7 +15,7 @@ let savef x =
     (let pad =
       if List.length !stackmap mod 2 = 0 then [] else [Id.gentmp Type.Int] in
     stackmap := !stackmap @ pad @ [x; x])
-let locate x =
+let locate x =(*stackmapにあるxのリストを作る*)
   let rec loc = function
     | [] -> []
     | y :: zs when x = y -> 0 :: List.map succ (loc zs)
@@ -83,7 +83,7 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprime) *)
   | NonTail(_), Save(x, y) when List.mem x allfregs && not (S.mem y !stackset) ->
       savef y;
       Printf.fprintf oc "\tstd\t%s, [%s + %d]\n" x reg_sp (offset y)
-  | NonTail(_), Save(x, y) -> assert (S.mem y !stackset); ()
+  | NonTail(_), Save(x, y) -> assert (S.mem y !stackset); ()(*重複ダメなの？*)
   (* 復帰の仮想命令の実装 (caml2html: emit_restore) *)
   | NonTail(x), Restore(y) when List.mem x allregs ->
       Printf.fprintf oc "\tld\t[%s + %d], %s\n" reg_sp (offset y) x
@@ -101,7 +101,7 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprime) *)
       Printf.fprintf oc "\tnop\n"
   | Tail, (FMovD _ | FNegD _ | FAddD _ | FSubD _ | FMulD _ | FDivD _ | LdDF _  as exp) ->
       g' oc (NonTail(fregs.(0)), exp);
-      Printf.fprintf oc "\tretl\n";
+      Printf.fprintf oc "\tretl\n";(*呼び出し元に戻る*)
       Printf.fprintf oc "\tnop\n"
   | Tail, (Restore(x) as exp) ->
       (match locate x with
@@ -112,7 +112,7 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprime) *)
       Printf.fprintf oc "\tnop\n"
   | Tail, IfEq(x, y', e1, e2) ->
       Printf.fprintf oc "\tcmp\t%s, %s\n" x (pp_id_or_imm y');
-      g'_tail_if oc e1 e2 "be" "bne"
+      g'_tail_if oc e1 e2 "be" "bne"(*bneでe2へ分岐,beはラベル用*)
   | Tail, IfLE(x, y', e1, e2) ->
       Printf.fprintf oc "\tcmp\t%s, %s\n" x (pp_id_or_imm y');
       g'_tail_if oc e1 e2 "ble" "bg"
@@ -146,7 +146,7 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprime) *)
       g'_non_tail_if oc (NonTail(z)) e1 e2 "fble" "fbg"
   (* 関数呼び出しの仮想命令の実装 (caml2html: emit_call) *)
   | Tail, CallCls(x, ys, zs) -> (* 末尾呼び出し (caml2html: emit_tailcall) *)
-      g'_args oc [(x, reg_cl)] ys zs;
+     g'_args oc [(x, reg_cl)] ys zs;(*レジスタ入れ替えでxの位置が分かるように*)
       Printf.fprintf oc "\tld\t[%s + 0], %s\n" reg_cl reg_sw;
       Printf.fprintf oc "\tjmp\t%s\n" reg_sw;
       Printf.fprintf oc "\tnop\n"
@@ -188,7 +188,7 @@ and g'_tail_if oc e1 e2 b bn =
   let stackset_back = !stackset in
   g oc (Tail, e1);
   Printf.fprintf oc "%s:\n" b_else;
-  stackset := stackset_back;
+  stackset := stackset_back;(*e1を展開した時の影響を除去してから*)
   g oc (Tail, e2)
 and g'_non_tail_if oc dest e1 e2 b bn =
   let b_else = Id.genid (b ^ "_else") in
@@ -206,10 +206,10 @@ and g'_non_tail_if oc dest e1 e2 b bn =
   Printf.fprintf oc "%s:\n" b_cont;
   let stackset2 = !stackset in
   stackset := S.inter stackset1 stackset2
-and g'_args oc x_reg_cl ys zs =
+and g'_args oc x_reg_cl ys zs =(*関数呼び出しように、レジスタを配置*)
   let (i, yrs) =
     List.fold_left
-      (fun (i, yrs) y -> (i + 1, (y, regs.(i)) :: yrs))
+      (fun (i, yrs) y -> (i + 1, (y, regs.(i)) :: yrs))(*1から引数を割り当て*)
       (0, x_reg_cl)
       ys in
   List.iter

@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdint.h>
 #include <caml/mlvalues.h>
 #include <caml/alloc.h>
 

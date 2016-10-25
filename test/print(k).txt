@@ -1,0 +1,34 @@
+Let
+ (Tu2)
+ Let
+  (Ti3)
+  Int 123
+  ExtFunApp
+   (print_int)
+   (Ti3)
+ Let
+  (Tu1)
+  Let
+   (Ti5)
+   Let
+    (Ti4)
+    Int 456
+    Neg
+     (Ti4)
+   ExtFunApp
+    (print_int)
+    (Ti5)
+  Let
+   (Ti8)
+   Let
+    (Ti6)
+    Int 789
+    Let
+     (Ti7)
+     Int 0
+     Add
+      (Ti6)
+      (Ti7)
+   ExtFunApp
+    (print_int)
+    (Ti8)

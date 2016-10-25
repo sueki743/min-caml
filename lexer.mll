@@ -5,7 +5,7 @@ open Type
 }
 
 (* 正規表現の略記 *)
-let space = [' ' '\t' '\n' '\r']
+let space = [' ' '\t' '\r']
 let digit = ['0'-'9']
 let lower = ['a'-'z']
 let upper = ['A'-'Z']
@@ -13,6 +13,8 @@ let upper = ['A'-'Z']
 rule token = parse
 | space+
     { token lexbuf }
+| "\n"
+    { Lexing.new_line lexbuf;token lexbuf}    
 | "(*"
     { comment lexbuf; (* ネストしたコメントのためのトリック *)
       token lexbuf }
@@ -70,7 +72,7 @@ rule token = parse
     { COMMA }
 | '_'
     { IDENT(Id.gentmp Type.Unit) }
-| "Array.create" | "Array.make" (* [XX] ad hoc *)
+| "Array.create" (* [XX] ad hoc *)
     { ARRAY_CREATE }
 | '.'
     { DOT }
@@ -84,8 +86,9 @@ rule token = parse
     { IDENT(Lexing.lexeme lexbuf) }
 | _
     { failwith
-	(Printf.sprintf "unknown token %s near characters %d-%d"
+	(Printf.sprintf "unknown token %s near line %d characters %d-%d"
 	   (Lexing.lexeme lexbuf)
+	   ((Lexing.lexeme_start_p lexbuf).pos_lnum)
 	   (Lexing.lexeme_start lexbuf)
 	   (Lexing.lexeme_end lexbuf)) }
 and comment = parse

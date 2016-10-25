@@ -1,0 +1,24 @@
+no fundef
+
+Let
+ (Ti3.16)
+ Int 123
+ Let
+  (Tu2.9)
+  AppDir
+   L(min_caml_print_int)
+   (Ti3.16)
+  Let
+   (Ti5.14)
+   Int -456
+   Let
+    (Tu1.10)
+    AppDir
+     L(min_caml_print_int)
+     (Ti5.14)
+    Let
+     (Ti8.11)
+     Int 789
+     AppDir
+      L(min_caml_print_int)
+      (Ti8.11)

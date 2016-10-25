@@ -9,12 +9,12 @@ let classify xts ini addf addi =
     (fun acc (x, t) ->
       match t with
       | Type.Unit -> acc
-      | Type.Float -> addf acc x
+      | Type.Float -> addf acc x(*前までの結果(acc)と連想配列の要素を受けて、addf処理をする*)
       | _ -> addi acc x t)
     ini
-    xts
+    xts(*何かと型との連想配列*)
 
-let separate xts =
+let separate xts =(*xtsをintとfloatのリスト2つに分ける*)
   classify
     xts
     ([], [])
@@ -26,7 +26,7 @@ let expand xts ini addf addi =
     xts
     ini
     (fun (offset, acc) x ->
-      let offset = align offset in
+      let offset = align offset in(*なぜ？align*)
       (offset + 8, addf x offset acc))
     (fun (offset, acc) x t ->
       (offset + 4, addi x t offset acc))
@@ -43,9 +43,10 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: virtual_g) *)
 	with Not_found ->
 	  let l = Id.L(Id.genid "l") in
 	  data := (l, d) :: !data;
-	  l in
+	  l
+      in
       let x = Id.genid "l" in
-      Let((x, Type.Int), SetL(l), Ans(LdDF(x, C(0))))
+      Let((x, Type.Int), SetL(l), Ans(LdDF(x, C(0))))(*１段に出来そう*)
   | Closure.Neg(x) -> Ans(Neg(x))
   | Closure.Add(x, y) -> Ans(Add(x, V(y)))
   | Closure.Sub(x, y) -> Ans(Sub(x, V(y)))
@@ -64,12 +65,12 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: virtual_g) *)
       | Type.Bool | Type.Int -> Ans(IfLE(x, V(y), g env e1, g env e2))
       | Type.Float -> Ans(IfFLE(x, y, g env e1, g env e2))
       | _ -> failwith "inequality supported only for bool, int, and float")
-  | Closure.Let((x, t1), e1, e2) ->
+  | Closure.Let((x, t1), e1, e2) ->(*変数を登録していきながら、再起*)
       let e1' = g env e1 in
-      let e2' = g (M.add x t1 env) e2 in
+      let e2' = g (M.add x t1 env) e2 in(*xの型を登録すればコード作れる*)
       concat e1' (x, t1) e2'
   | Closure.Var(x) ->
-      (match M.find x env with
+     (match M.find x env with
       | Type.Unit -> Ans(Nop)
       | Type.Float -> Ans(FMovD(x))
       | _ -> Ans(Mov(x)))
@@ -78,7 +79,7 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: virtual_g) *)
       let e2' = g (M.add x t env) e2 in
       let offset, store_fv =
 	expand
-	  (List.map (fun y -> (y, M.find y env)) ys)
+	  (List.map (fun y -> (y, M.find y env)) ys)(*この時点でysは環境に入ってる*)
 	  (4, e2')
 	  (fun y offset store_fv -> seq(StDF(y, x, C(offset)), store_fv))
 	  (fun y _ offset store_fv -> seq(St(y, x, C(offset)), store_fv)) in
@@ -98,19 +99,20 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: virtual_g) *)
       let y = Id.genid "t" in
       let (offset, store) =
 	expand
-	  (List.map (fun x -> (x, M.find x env)) xs)
+	  (List.map (fun x -> (x, M.find x env)) xs)(*型を連想づける*)
 	  (0, Ans(Mov(y)))
-	  (fun x offset store -> seq(StDF(x, y, C(offset)), store))
+	  (fun x offset store -> seq(StDF(x, y, C(offset)), store))(*次のstore値*)
 	  (fun x _ offset store -> seq(St(x, y, C(offset)), store)) in
       Let((y, Type.Tuple(List.map (fun x -> M.find x env) xs)), Mov(reg_hp),
 	  Let((reg_hp, Type.Int), Add(reg_hp, C(align offset)),
 	      store))
+  (*ヒープレジスタをoffset分伸ばして、yに組の先頭に入れてstoreする*)
   | Closure.LetTuple(xts, y, e2) ->
       let s = Closure.fv e2 in
       let (offset, load) =
 	expand
 	  xts
-	  (0, g (M.add_list xts env) e2)
+	  (0, g (M.add_list xts env) e2)(*変数の型さえ分かれば、コードが作れる*)
 	  (fun x offset load ->
 	    if not (S.mem x s) then load else (* [XX] a little ad hoc optimization *)
 	    fletd(x, LdDF(y, C(offset)), load))
@@ -124,7 +126,7 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: virtual_g) *)
       | Type.Array(Type.Unit) -> Ans(Nop)
       | Type.Array(Type.Float) ->
 	  Let((offset, Type.Int), SLL(y, C(3)),
-	      Ans(LdDF(x, V(offset))))
+	      Ans(LdDF(x, V(offset))))(*メモリはバイトアクセス,ここでは64ビットサイズ*)
       | Type.Array(_) ->
 	  Let((offset, Type.Int), SLL(y, C(2)),
 	      Ans(Ld(x, V(offset))))

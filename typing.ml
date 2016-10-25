@@ -58,18 +58,18 @@ let rec occur r1 = function (* occur check (caml2html: typing_occur) *)
   | Type.Var({ contents = Some(t2) }) -> occur r1 t2
   | _ -> false
 
-let rec unify t1 t2 = (* 型が合うように、型変数への代入をする (caml2html: typing_unify) *)
+let rec unify t1 t2 = (* 型が合うように、型変数への代入をする (caml2html: typing_unify) 、、、と同時に型に矛盾ないか調べられる*)
   match t1, t2 with
   | Type.Unit, Type.Unit | Type.Bool, Type.Bool | Type.Int, Type.Int | Type.Float, Type.Float -> ()
   | Type.Fun(t1s, t1'), Type.Fun(t2s, t2') ->
       (try List.iter2 unify t1s t2s
-      with Invalid_argument("List.iter2") -> raise (Unify(t1, t2)));
+       with Invalid_argument("List.iter2") -> raise (Unify(t1, t2))); (*引数の数が合わない時*)
       unify t1' t2'
   | Type.Tuple(t1s), Type.Tuple(t2s) ->
       (try List.iter2 unify t1s t2s
-      with Invalid_argument("List.iter2") -> raise (Unify(t1, t2)))
+      with Invalid_argument("List.iter2") -> raise (Unify(t1, t2)))   (*要素の数が合わない時*)
   | Type.Array(t1), Type.Array(t2) -> unify t1 t2
-  | Type.Var(r1), Type.Var(r2) when r1 == r2 -> ()
+  | Type.Var(r1), Type.Var(r2) when r1 == r2 -> ()   (*同じ変数だった場合、r1とr2が同じ場所を参照するポインタ・・・何もしない*)
   | Type.Var({ contents = Some(t1') }), _ -> unify t1' t2
   | _, Type.Var({ contents = Some(t2') }) -> unify t1 t2'
   | Type.Var({ contents = None } as r1), _ -> (* 一方が未定義の型変数の場合 (caml2html: typing_undef) *)
@@ -115,10 +115,10 @@ let rec g env e = (* 型推論ルーチン (caml2html: typing_g) *)
 	t2
     | Let((x, t), e1, e2) -> (* letの型推論 (caml2html: typing_let) *)
 	unify t (g env e1);
-	g (M.add x t env) e2
+	g (M.add x t env) e2(*ここで、型変数を型環境に加える*)
     | Var(x) when M.mem x env -> M.find x env (* 変数の型推論 (caml2html: typing_var) *)
     | Var(x) when M.mem x !extenv -> M.find x !extenv
-    | Var(x) -> (* 外部変数の型推論 (caml2html: typing_extvar) *)
+    | Var(x) -> (* 外部変数の型推論 (caml2html: typing_extvar)、、未定義も含む *)
 	Format.eprintf "free variable %s assumed as external@." x;
 	let t = Type.gentyp () in
 	extenv := M.add x t !extenv;
@@ -149,7 +149,7 @@ let rec g env e = (* 型推論ルーチン (caml2html: typing_g) *)
 	unify Type.Int (g env e2);
 	Type.Unit
   with Unify(t1, t2) -> raise (Error(deref_term e, deref_typ t1, deref_typ t2))
-
+1
 let f e =
   extenv := M.empty;
 (*
@@ -160,4 +160,4 @@ let f e =
   (try unify Type.Unit (g M.empty e)
   with Unify _ -> failwith "top level does not have type unit");
   extenv := M.map deref_typ !extenv;
-  deref_term e
+  deref_term e(*構文木の各変数に対応づけられてる、型変数をその中身に置き換え*)

@@ -1,62 +1,63 @@
-(* SPARC assembly with a few virtual instructions *)
 
 type id_or_imm = V of Id.t | C of int
-type t = (* Ì¿Îá¤ÎÎó (caml2html: sparcasm_t) *)
+type t = (* å‘½ä»¤ã®åˆ— (caml2html: sparcasm_t) *)
   | Ans of exp
   | Let of (Id.t * Type.t) * exp * t
-and exp = (* °ì¤Ä°ì¤Ä¤ÎÌ¿Îá¤ËÂÐ±þ¤¹¤ë¼° (caml2html: sparcasm_exp) *)
-  | Nop
-  | Set of int
-  | SetL of Id.l
-  | Mov of Id.t
-  | Neg of Id.t
+ and exp = (* ä¸€ã¤ä¸€ã¤ã®å‘½ä»¤ã«å¯¾å¿œã™ã‚‹å¼ è«–ç†æ¼”ç®—ãªã—//æ¯”è¼ƒã‚„åˆ†å²ã¯å¾Œ//addiã¨addã‚’åˆ†ã‘ã‚‹ã®ã‚‚å¾Œ *)
+  |Nop
   | Add of Id.t * id_or_imm
   | Sub of Id.t * id_or_imm
-  | SLL of Id.t * id_or_imm
-  | Ld of Id.t * id_or_imm
-  | St of Id.t * Id.t * id_or_imm
-  | FMovD of Id.t
-  | FNegD of Id.t
-  | FAddD of Id.t * Id.t
-  | FSubD of Id.t * Id.t
-  | FMulD of Id.t * Id.t
-  | FDivD of Id.t * Id.t
-  | LdDF of Id.t * id_or_imm
-  | StDF of Id.t * Id.t * id_or_imm
+  | SLL of Id.t * int
+  | SRL of Id.t * int
+  | Lw of int * Id.t
+  | La of Id.l
+  | Sw of Id.t *int * Id.t
+  | FLw of  int * Id.t
+  | FSw of Id.t * int * Id.t
+  | FAdd of Id.t * Id.t
+  | FSub of Id.t * Id.t
+  | FMul of Id.t * Id.t
+  | FInv of Id.t
+  | FMov of Id.t
+  | FNeg of Id.t
   | Comment of string
   (* virtual instructions *)
   | IfEq of Id.t * id_or_imm * t * t
   | IfLE of Id.t * id_or_imm * t * t
-  | IfGE of Id.t * id_or_imm * t * t (* º¸±¦ÂÐ¾Î¤Ç¤Ï¤Ê¤¤¤Î¤ÇÉ¬Í× *)
+  | IfGE of Id.t * id_or_imm * t * t (* å·¦å³å¯¾ç§°ã§ã¯ãªã„ã®ã§å¿…è¦ *)
   | IfFEq of Id.t * Id.t * t * t
   | IfFLE of Id.t * Id.t * t * t
   (* closure address, integer arguments, and float arguments *)
   | CallCls of Id.t * Id.t list * Id.t list
   | CallDir of Id.l * Id.t list * Id.t list
-  | Save of Id.t * Id.t (* ¥ì¥¸¥¹¥¿ÊÑ¿ô¤ÎÃÍ¤ò¥¹¥¿¥Ã¥¯ÊÑ¿ô¤ØÊÝÂ¸ (caml2html: sparcasm_save) *)
-  | Restore of Id.t (* ¥¹¥¿¥Ã¥¯ÊÑ¿ô¤«¤éÃÍ¤òÉü¸µ (caml2html: sparcasm_restore) *)
+  | Save of Id.t * Id.t (* ãƒ¬ã‚¸ã‚¹ã‚¿å¤‰æ•°ã®å€¤ã‚’ã‚¹ã‚¿ãƒƒã‚¯å¤‰æ•°ã¸ä¿å­˜ (caml2html: sparcasm_save) *)
+  | Restore of Id.t (* ã‚¹ã‚¿ãƒƒã‚¯å¤‰æ•°ã‹ã‚‰å€¤ã‚’å¾©å…ƒ (caml2html: sparcasm_restore) *)
 type fundef = { name : Id.l; args : Id.t list; fargs : Id.t list; body : t; ret : Type.t }
-(* ¥×¥í¥°¥é¥àÁ´ÂÎ = ÉâÆ°¾®¿ôÅÀ¿ô¥Æ¡¼¥Ö¥ë + ¥È¥Ã¥×¥ì¥Ù¥ë´Ø¿ô + ¥á¥¤¥ó¤Î¼° (caml2html: sparcasm_prog) *)
+(* ãƒ—ãƒ­ã‚°ãƒ©ãƒ å…¨ä½“ = æµ®å‹•å°æ•°ç‚¹æ•°ãƒ†ãƒ¼ãƒ–ãƒ« + ãƒˆãƒƒãƒ—ãƒ¬ãƒ™ãƒ«é–¢æ•° + ãƒ¡ã‚¤ãƒ³ã®å¼ (caml2html: sparcasm_prog) *)
 type prog = Prog of (Id.l * float) list * fundef list * t
 
 let fletd(x, e1, e2) = Let((x, Type.Float), e1, e2)
-let seq(e1, e2) = Let((Id.gentmp Type.Unit, Type.Unit), e1, e2)(*e1;e2¤ß¤¿¤¤¤ÊÅÛ*)
+let seq(e1, e2) = Let((Id.gentmp Type.Unit, Type.Unit), e1, e2)
 
-let regs = (* Array.init 16 (fun i -> Printf.sprintf "%%r%d" i) *)
-  [| "%i2"; "%i3"; "%i4"; "%i5";
+let regs =  Array.init 27 (fun i -> Printf.sprintf "%%r%d" (i+1)) 
+  (*[| "%i2"; "%i3"; "%i4"; "%i5";
      "%l0"; "%l1"; "%l2"; "%l3"; "%l4"; "%l5"; "%l6"; "%l7";
-     "%o0"; "%o1"; "%o2"; "%o3"; "%o4"; "%o5" |]
-let fregs = Array.init 16 (fun i -> Printf.sprintf "%%f%d" (i * 2))
+     "%o0"; "%o1"; "%o2"; "%o3"; "%o4"; "%o5" |]*)
+let fregs = Array.init 32 (fun i -> Printf.sprintf "%%f%d" i)
 let allregs = Array.to_list regs
 let allfregs = Array.to_list fregs
-let reg_cl = regs.(Array.length regs - 1) (* closure address (caml2html: sparcasm_regcl) *)
-let reg_sw = regs.(Array.length regs - 2) (* temporary for swap *)
+let reg_cl = regs.(Array.length regs - 1)(* closure address (caml2html: sparcasm_regcl) *)
+let reg_sw = regs.(Array.length regs - 2)
 let reg_fsw = fregs.(Array.length fregs - 1) (* temporary for swap *)
-let reg_sp = "%i0" (* stack pointer *)
-let reg_hp = "%i1" (* heap pointer (caml2html: sparcasm_reghp) *)
-let reg_ra= "%o7" (* return address *)
+let reg_sp = "%r30" (* stack pointer *)
+let reg_hp = "%r29" (* heap pointer (caml2html: sparcasm_reghp) *)
+let reg_ra = "%r31" (* return address *)
+let reg_cond = "%r28"
+let reg_zero = "%r0" 
 let is_reg x = (x.[0] = '%')
-let co_freg_table =
+
+(*æµ®å‹•å°æ•°ã¯32ãƒ“ãƒƒãƒˆãªã®ã§ã„ã‚‰ãªã„ã€‚*)
+(*let co_freg_table =
   let ht = Hashtbl.create 16 in
   for i = 0 to 15 do
     Hashtbl.add
@@ -66,7 +67,8 @@ let co_freg_table =
   done;
   ht
 let co_freg freg = Hashtbl.find co_freg_table freg (* "companion" freg *)
-
+ *)
+                 
 (* super-tenuki *)
 let rec remove_and_uniq xs = function
   | [] -> []
@@ -76,11 +78,10 @@ let rec remove_and_uniq xs = function
 (* free variables in the order of use (for spilling) (caml2html: sparcasm_fv) *)
 let fv_id_or_imm = function V(x) -> [x] | _ -> []
 let rec fv_exp = function
-  | Nop | Set(_) | SetL(_) | Comment(_) | Restore(_) -> []
-  | Mov(x) | Neg(x) | FMovD(x) | FNegD(x) | Save(x, _) -> [x]
-  | Add(x, y') | Sub(x, y') | SLL(x, y') | Ld(x, y') | LdDF(x, y') -> x :: fv_id_or_imm y'
-  | St(x, y, z') | StDF(x, y, z') -> x :: y :: fv_id_or_imm z'
-  | FAddD(x, y) | FSubD(x, y) | FMulD(x, y) | FDivD(x, y) -> [x; y]
+  |Nop|La _| Comment(_) | Restore(_) -> []
+  |FNeg (x)|FMov (x)| FInv (x)| Save(x, _)|SLL(x,_)|SRL(x,_)|Lw(_,x)|FLw(_,x) -> [x]
+  | Add(x, y') | Sub(x, y')   -> x :: fv_id_or_imm y'
+  | FAdd(x, y) | FSub(x, y) | FMul(x, y) |Sw(x,_,y)|FSw(x,_,y) -> [x; y]
   | IfEq(x, y', e1, e2) | IfLE(x, y', e1, e2) | IfGE(x, y', e1, e2) -> x :: fv_id_or_imm y' @ remove_and_uniq S.empty (fv e1 @ fv e2) (* uniq here just for efficiency *)
   | IfFEq(x, y, e1, e2) | IfFLE(x, y, e1, e2) -> x :: y :: remove_and_uniq S.empty (fv e1 @ fv e2) (* uniq here just for efficiency *)
   | CallCls(x, ys, zs) -> x :: ys @ zs
@@ -91,7 +92,7 @@ and fv = function
       fv_exp exp @ remove_and_uniq (S.singleton x) (fv e)
 let fv e = remove_and_uniq S.empty (fv e)
 
-let rec concat e1 xt e2 =(*e1¤Î·ë²Ì¤òxt¤ËÂ«Çû¤·¤Æ¡¢e2¤ò¤Ä¤Ê¤²¤ë*)
+let rec concat e1 xt e2 =(*e1ã®çµæžœã‚’xtã«æŸç¸›ã—ã¦ã€e2ã‚’ã¤ãªã’ã‚‹*)
   match e1 with
   | Ans(exp) -> Let(xt, exp, e2)
   | Let(yt, exp, e1') -> Let(yt, exp, concat e1' xt e2)
