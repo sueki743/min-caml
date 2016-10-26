@@ -1,0 +1,14 @@
+/#*
+/*~
+/.#*
+/._bcdi/
+/._d/
+#/test/
+/*.cmi
+/*.cmo
+/*.o
+/lexer.ml
+/min-caml
+/min-caml.top
+/parser.ml
+/parser.mli

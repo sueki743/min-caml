@@ -23,3 +23,9 @@ let rec id_of_typ = function
 let gentmp typ =
   incr counter;
   Printf.sprintf "T%s%d" (id_of_typ typ) !counter
+
+let print_id oc id
+             =Printf.fprintf oc "%s" id
+let print_l oc l
+  =match l with
+    L id ->Printf.fprintf oc "L(%s)" id
