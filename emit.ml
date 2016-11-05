@@ -170,7 +170,7 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
       Printf.fprintf oc "\tsw\t%s, %d(%s)\n" reg_ra (ss-4) reg_sp;
       Printf.fprintf oc "\tlw\t%s, 0(%s)\n" reg_sw reg_cl;
       Printf.fprintf oc "\taddi\t%s, %s, %d,\n" reg_sp reg_sp ss;
-      Printf.fprintf oc "\tjal\t%s\n" reg_sw;(*reg_raをセットしてじゃんぶ*)
+      Printf.fprintf oc "\tjalr\t%s\n" reg_sw;(*reg_raをセットしてじゃんぶ*)
       Printf.fprintf oc "\taddi\t%s, %s, -%d\n" reg_sp reg_sp ss;(*即値引き算*)
       Printf.fprintf oc "\tlw\t%s, %d(%s)\n" reg_ra (ss - 4) reg_sp;
       if List.mem a allregs && a <> regs.(0) then

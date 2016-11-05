@@ -45,6 +45,12 @@ let rec g oc tree depth =
   |Sub (t1,t2) ->fprintf oc "Sub\n";
                g oc t1 (depth +1);
                g oc t2 (depth +1)
+  |Mul (t1,t2) ->fprintf oc "Mul\n";
+                 g oc t1 (depth +1);
+                 g oc t2 (depth +1)
+  |Div (t1,t2) ->fprintf oc "Div\b";
+                 g oc t1 (depth+1);
+                 g oc t2 (depth+1)
   |FNeg t ->fprintf oc "FNeg\n";
             g oc t (depth +1)
   |FAdd (t1,t2) ->fprintf oc "FAdd\n";
