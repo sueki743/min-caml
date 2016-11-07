@@ -1,5 +1,12 @@
 open Syntax
 
+module EdgeSet =
+	Set.Make
+		(struct
+			type t = string * string
+			let compare = compare
+		end)
+
 let f oc e =
 	let rec g (nodes, edges) = function
 		| LetRec({name=(x0,t); args=yts; body=e1}, e2) ->
@@ -7,7 +14,7 @@ let f oc e =
 			let rec h edges = function
 				| App(e,es) ->
 					(match e with
-					| Var(x) -> List.fold_left h ((x0, x)::edges) es
+					| Var(x) -> List.fold_left h (EdgeSet.add (x0, x) edges) es
 					| _ -> failwith "App(not Var, _)"
 					)
 				| Unit
@@ -48,9 +55,9 @@ let f oc e =
 		| _ -> (nodes, edges)
 	in
 	Printf.fprintf oc "digraph G {\n";
-	let (nodes, edges) = g ([], []) e in
+	let (nodes, edges) = g ([], EdgeSet.empty) e in
 	List.iter (Printf.fprintf oc "%s [style=filled, fillcolor=green];\n") nodes;
 	Printf.fprintf oc "\n";
-	List.iter (fun (x1,x2) -> Printf.fprintf oc "%s -> %s;\n" x1 x2) edges;
+	EdgeSet.iter (fun (x1,x2) -> Printf.fprintf oc "%s -> %s;\n" x1 x2) edges;
 	Printf.fprintf oc "}\n";
 		e
