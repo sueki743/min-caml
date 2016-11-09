@@ -63,12 +63,12 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
      (match z' with
       |V(v)->Printf.fprintf oc "\tsub\t%s, %s, %s\n" x y v;
       |C(c)->Printf.fprintf oc "\taddi\t%s, %s, -%d\n" x y c;)
-  | NonTail(x), Mul(y,z) -> Printf.fprintf oc "\tsll\t%s, %s, 2" x y(*zが無駄、後で改善*)
-  | NonTail(x), Div(y,z) -> Printf.fprintf oc "\tsrl\t%s, %s, 2" x y
+  | NonTail(x), Mul(y,z) -> Printf.fprintf oc "\tsll\t%s, %s, 2\n" x y(*zが無駄、後で改善*)
+  | NonTail(x), Div(y,z) -> Printf.fprintf oc "\tsrl\t%s, %s, 2\n" x y
   | NonTail(x), SLL(y, c) -> Printf.fprintf oc "\tsll\t%s, %s, %d\n" x y c
   | NonTail(x), SRL(y, c) -> Printf.fprintf oc "\tsrl\t%s, %s, %d\n" x y c
   | NonTail(x), Lw(c,y) -> Printf.fprintf oc "\tlw\t%s, %d(%s)\n" x c y
-  | NonTail(x), La(Id.L(y)) ->Printf.fprintf oc "\tla\t%s, %s" x y
+  | NonTail(x), La(Id.L(y)) ->Printf.fprintf oc "\tla\t%s, %s\n" x y
   | NonTail(_), Sw(x,c,y) -> Printf.fprintf oc "\tsw\t%s, %d(%s)\n" x c y
   | NonTail(x), FLw(c,y) -> Printf.fprintf oc "\tlw.s\t%s, %d(%s)\n" x c y
   | NonTail(_), FSw(x,c,y) -> Printf.fprintf oc "\tsw.s\t%s, %d(%s)\n" x c y

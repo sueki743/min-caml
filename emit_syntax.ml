@@ -78,7 +78,7 @@ let rec g oc tree depth =
   |Let ((id1,ty1),t2,t3) ->fprintf oc "Let\n";
                           fprintf oc "%*s%s\n" (depth+1) "" id1;
                           g oc t2 (depth+1);
-                          g oc t3 (depth+1);
+                          g oc t3 (depth);
   |Var (v,_) ->fprintf oc "(%s)\n" v;
   |LetRec (fundef,t1)->fprintf oc "LetRec\n";
                        fprintf oc "%*s" (depth+1) "";
@@ -89,7 +89,7 @@ let rec g oc tree depth =
                        fprintf oc "|\n\n";
                        g oc funbody (depth+2);
                        fprintf oc "\n%*s>>\n" (depth+1) "";
-                       g oc t1 (depth+1)
+                       g oc t1 (depth)
   |App (t1,ts) -> fprintf oc "App\n";
                   List.map (fun x ->g oc x (depth +1)) (t1::ts);
                   ()
@@ -103,7 +103,7 @@ let rec g oc tree depth =
                           List.map (fun (id,ty)->fprintf oc "%s " id) ids1;
                           fprintf oc "\n";
                           g oc t2 (depth+1);
-                          g oc t3 (depth+2)
+                          g oc t3 (depth)
   |Array (t1,t2) ->fprintf oc "Array\n";
                    g oc t1 (depth+1);
                    g oc t2 (depth+2);

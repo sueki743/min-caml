@@ -136,7 +136,9 @@ let rec g env e = (* 型推論ルーチン (caml2html: typing_g) *)
            Unify _ -> raise (Error(deref_typ t2,deref_typ t3,startpos e3)));
 	t2
     | Let((x, t), e1, e2) -> (* letの型推論 (caml2html: typing_let) *)
-       unify t (g env e1);(*ここで単一化エラーは起こらない*)
+       let t1=g env e1 in
+       (try unify t t1 with(*ここで単一化エラーは起こらない*)
+          Unify _ -> raise (Error(t,t1,startpos e1)));
 	g (M.add x t env) e2
     | Var(x,_) when M.mem x env -> M.find x env (* 変数の型推論 (caml2html: typing_var) *)
     | Var(x,_) when M.mem x !extenv -> M.find x !extenv
@@ -200,8 +202,10 @@ let f e =
   (match deref_typ (g M.empty e) with
   | Type.Unit -> ()
   | _ -> Format.eprintf "warning: final result does not have type unit@.");
-*)
-  (try unify Type.Unit (g M.empty e)
-  with Unify _ -> failwith "top level does not have type unit");
+ *)
+  let t = g M.empty e in
+  (try unify Type.Unit t with
+     Unify _ ->(try unify Type.Int t with
+                  Unify _ ->failwith "toplevel type is not unit or int"));
   extenv := M.map deref_typ !extenv;
   deref_term e

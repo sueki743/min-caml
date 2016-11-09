@@ -7,7 +7,7 @@ let rec iter n e = (* ºÇÅ¬²½½èÍý¤ò¤¯¤ê¤«¤¨¤¹ (caml2html: main_iter) *)
   if e = e' then e else
   iter (n - 1) e'
 
-let lexbuf outchan outchan2 outchan3 outchan4 l = (* ¥Ð¥Ã¥Õ¥¡¤ò¥³¥ó¥Ñ¥¤¥ë¤·¤Æ¥Á¥ã¥ó¥Í¥ë¤Ø½ÐÎÏ¤¹¤ë (caml2html: main_lexbuf) *)
+let lexbuf outchan outchan2 outchan3 outchan4 l glb_l= (* ¥Ð¥Ã¥Õ¥¡¤ò¥³¥ó¥Ñ¥¤¥ë¤·¤Æ¥Á¥ã¥ó¥Í¥ë¤Ø½ÐÎÏ¤¹¤ë (caml2html: main_lexbuf) *)
   Id.counter := 0;
   Typing.extenv := M.empty;
   Emit.f outchan
@@ -26,18 +26,21 @@ let lexbuf outchan outchan2 outchan3 outchan4 l = (* ¥Ð¥Ã¥Õ¥¡¤ò¥³¥ó¥Ñ¥¤¥ë¤·¤Æ¥Á¥
                                (Emit_syntax.f
                                   outchan2 
 			          (Typing.f
-			             (Parser.exp Lexer.token l))))))))))))
+                                     (Joinglb.f
+			                (Parser.exp Lexer.token l)
+                                        (Parser.exp Lexer.token glb_l)))))))))))))
     
-let string s = lexbuf stdout stdout stdout stdout (Lexing.from_string s) (* Ê¸»úÎó¤ò¥³¥ó¥Ñ¥¤¥ë¤·¤ÆÉ¸½à½ÐÎÏ¤ËÉ½¼¨¤¹¤ë (caml2html: main_string) *)
+let string s glbchan = lexbuf stdout stdout stdout stdout (Lexing.from_string s) (Lexing.from_channel glbchan) (* Ê¸»úÎó¤ò¥³¥ó¥Ñ¥¤¥ë¤·¤ÆÉ¸½à½ÐÎÏ¤ËÉ½¼¨¤¹¤ë (caml2html: main_string) *)
 
 let file f = (* ¥Õ¥¡¥¤¥ë¤ò¥³¥ó¥Ñ¥¤¥ë¤·¤Æ¥Õ¥¡¥¤¥ë¤Ë½ÐÎÏ¤¹¤ë (caml2html: main_file) *)
   let inchan = open_in (f ^ ".ml") in
+  let glbchan = open_in ("globals.ml") in
   let outchan = open_out (f ^ ".s") in
   let outchan2 = open_out (f ^ "_syn.txt") in
   let outchan3 = open_out (f^"_k1.txt") in
   let outchan4 = open_out (f^"_closure.txt") in
   try
-    lexbuf outchan outchan2 outchan3 outchan4 (Lexing.from_channel inchan);
+    lexbuf outchan outchan2 outchan3 outchan4 (Lexing.from_channel inchan) (Lexing.from_channel glbchan);
     close_in inchan;
     close_out outchan;
     close_out outchan2;
