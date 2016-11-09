@@ -142,7 +142,7 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
              int_nontail_if oc (NonTail(z)) x reg_sw e1 e2 "beq" "bne" )
   | NonTail(z), IfLE(x, y', e1, e2) ->
       (match y' with
-       |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s" reg_cond x y;
+       |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond x y;
               int_nontail_if oc (NonTail(z)) reg_cond regs.(0) e1 e2 "bne" "beq"(*bneでe1へ分岐,beqでe2へ*)
        |C i ->Printf.fprintf oc "\tslti\t%s, %s, %d\n" reg_cond x i;
               int_nontail_if oc (NonTail(z)) reg_cond regs.(0) e1 e2 "bne" "beq" )
