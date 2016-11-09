@@ -3,7 +3,7 @@
 /.#*
 /._bcdi/
 /._d/
-#/test/
+/test/*txt
 /*.cmi
 /*.cmo
 /*.o

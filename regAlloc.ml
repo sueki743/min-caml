@@ -127,6 +127,9 @@ and g' dest cont regenv = function (* 各命令のレジスタ割り当て 変�
   | Nop |La _ | Comment _ | Restore _ as exp -> (Ans(exp), regenv)
   | Add(x, y') -> (Ans(Add(find x Type.Int regenv, find' y' regenv)), regenv)
   | Sub(x, y') -> (Ans(Sub(find x Type.Int regenv, find' y' regenv)), regenv)
+  | Mul(x, y) -> (Ans(Mul(find x Type.Int regenv, find y Type.Int regenv)), regenv)
+  | Div(x, y) -> (Ans(Div(find x Type.Int regenv, find y Type.Int regenv)), regenv)
+
   | SLL(x, i) -> (Ans(SLL(find x Type.Int regenv,i)), regenv)
   | SRL(x, i) -> (Ans(SRL(find x Type.Int regenv,i)), regenv)
   | Lw(i, x) -> (Ans(Lw(i,find x Type.Int regenv)), regenv)

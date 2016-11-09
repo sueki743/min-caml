@@ -7,6 +7,8 @@ type t = (* 命令の列 (caml2html: sparcasm_t) *)
   |Nop
   | Add of Id.t * id_or_imm
   | Sub of Id.t * id_or_imm
+  | Mul of Id.t * Id.t
+  | Div of Id.t * Id.t
   | SLL of Id.t * int
   | SRL of Id.t * int
   | Lw of int * Id.t
@@ -81,7 +83,7 @@ let rec fv_exp = function
   |Nop|La _| Comment(_) | Restore(_) -> []
   |FNeg (x)|FMov (x)| FInv (x)| Save(x, _)|SLL(x,_)|SRL(x,_)|Lw(_,x)|FLw(_,x) -> [x]
   | Add(x, y') | Sub(x, y')   -> x :: fv_id_or_imm y'
-  | FAdd(x, y) | FSub(x, y) | FMul(x, y) |Sw(x,_,y)|FSw(x,_,y) -> [x; y]
+  | Mul(x,y)|Div(x,y) | FAdd(x, y) | FSub(x, y) | FMul(x, y) |Sw(x,_,y)|FSw(x,_,y) -> [x; y]
   | IfEq(x, y', e1, e2) | IfLE(x, y', e1, e2) | IfGE(x, y', e1, e2) -> x :: fv_id_or_imm y' @ remove_and_uniq S.empty (fv e1 @ fv e2) (* uniq here just for efficiency *)
   | IfFEq(x, y, e1, e2) | IfFLE(x, y, e1, e2) -> x :: y :: remove_and_uniq S.empty (fv e1 @ fv e2) (* uniq here just for efficiency *)
   | CallCls(x, ys, zs) -> x :: ys @ zs

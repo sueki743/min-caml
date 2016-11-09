@@ -50,6 +50,8 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
   | Closure.Neg(x) -> Ans(Sub(reg_zero, V (x)))
   | Closure.Add(x, y) -> Ans(Add(x, V(y)))
   | Closure.Sub(x, y) -> Ans(Sub(x, V(y)))
+  | Closure.Mul(x, y) -> Ans(Mul(x,y))
+  | Closure.Div(x, y) -> Ans(Div(x,y))
   | Closure.FNeg(x) -> Ans(FNeg(x))(*FNegはあったほうが良い気がする。*)
   | Closure.FAdd(x, y) -> Ans(FAdd(x, y))
   | Closure.FSub(x, y) -> Ans(FSub(x, y))

@@ -92,7 +92,7 @@ rule token = parse
     { failwith
 	(Printf.sprintf "unknown token %s near line %d characters %d-%d"
 	   (Lexing.lexeme lexbuf)
-	   ((Lexing.lexeme_start_p lexbuf).pos_lnum)
+	   ((Lexing.lexeme_start_p lexbuf).Lexing.pos_lnum)
 	   (Lexing.lexeme_start lexbuf)
 	   (Lexing.lexeme_end lexbuf)) }
 and comment = parse
@@ -103,5 +103,7 @@ and comment = parse
       comment lexbuf }
 | eof
     { Format.eprintf "warning: unterminated comment@." }
+|"\n"
+    { Lexing.new_line lexbuf;comment lexbuf}
 | _
     { comment lexbuf }

@@ -7,6 +7,8 @@ type t = (* 命令の列 (caml2html: sparcasm_t) *)
   |Nop
   | Add of Id.t * id_or_imm
   | Sub of Id.t * id_or_imm
+  | Mul of Id.t * Id.t
+  | Div of Id.t * Id.t
   | SLL of Id.t * int
   | SRL of Id.t * int
   | Lw of int * Id.t

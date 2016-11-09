@@ -2,6 +2,11 @@
 (* parserが利用する変数、関数、型などの定義 *)
 open Syntax
 let addtyp x = (x, Type.gentyp ())
+let getpos () =
+    let pos = Parsing.symbol_start_pos () in
+    let linenum = pos.Lexing.pos_lnum in
+    let charnum = pos.Lexing.pos_cnum - pos.Lexing.pos_bol in
+    {line=linenum;characters=charnum}
 %}
 
 /* (* 字句を表すデータ型の定義 (caml2html: parser_token) *) */
@@ -62,15 +67,15 @@ simple_exp: /* (* 括弧をつけなくても関数の引数になれる式 (caml2html: parser_simp
 | LPAREN exp RPAREN
     { $2 }
 | LPAREN RPAREN
-    { Unit }
+    { Unit(getpos ()) }
 | BOOL
-    { Bool($1) }
+    { Bool($1,getpos()) }
 | INT
-    { Int($1) }
+    { Int($1,getpos()) }
 | FLOAT
-    { Float($1) }
+    { Float($1,getpos()) }
 | IDENT
-    { Var($1) }
+    { Var($1,getpos()) }
 | simple_exp DOT LPAREN exp RPAREN
     { Get($1, $4) }
 
@@ -85,7 +90,7 @@ exp: /* (* 一般の式 (caml2html: parser_exp) *) */
 | MINUS exp
     %prec prec_unary_minus
     { match $2 with
-    | Float(f) -> Float(-.f) (* -1.23などは型エラーではないので別扱い *)
+    | Float(f,_) -> Float(-.f,getpos()) (* -1.23などは型エラーではないので別扱い *)
     | e -> Neg(e) }
 | exp PLUS exp /* (* 足し算を構文解析するルール (caml2html: parser_add) *) */
     { Add($1, $3) }
@@ -143,15 +148,15 @@ exp: /* (* 一般の式 (caml2html: parser_exp) *) */
     { Array($2, $3) }
 | error
     { failwith
-     (let line_pos=(Parsing.symbol_start_pos ()).pos_bol in
+     (let line_pos=(Parsing.symbol_start_pos ()).Lexing.pos_bol in
 	(Printf.sprintf "parse error near line %d charactfers %d-%d"
-	   ((Parsing.symbol_start_pos ()).pos_lnum)
-	   ((Parsing.symbol_start_pos ()).pos_cnum-line_pos)
-	   ((Parsing.symbol_end_pos ()).pos_cnum-line_pos))) }
+	   ((Parsing.symbol_start_pos ()).Lexing.pos_lnum)
+	   ((Parsing.symbol_start_pos ()).Lexing.pos_cnum-line_pos)
+	   ((Parsing.symbol_end_pos ()).Lexing.pos_cnum-line_pos))) }
 
 fundef:
 | IDENT formal_args EQUAL exp
-    { { name = addtyp $1; args = $2; body = $4 } }/*(*addtypeは変数に型変数を追加*)*/
+    { { name = (addtyp $1,getpos()); args = $2; body = $4 } }/*(*addtypeは変数に型変数を追加*)*/
 
 formal_args:
 | IDENT formal_args

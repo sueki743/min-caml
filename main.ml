@@ -43,7 +43,34 @@ let file f = (* ファイルをコンパイルしてファイルに出力する (caml2html: main_file
     close_out outchan2;
     close_out outchan3;
     close_out outchan4;
-  with e -> (close_in inchan; close_out outchan; raise e)
+  with
+  |Typing.Error (t1,t2,pos)-> close_in inchan;
+                              close_out outchan;
+                              close_out outchan2;
+                              close_out outchan3;
+                              close_out outchan4;
+                              let line = pos.Syntax.line in
+                              let charnum= pos.Syntax.characters in
+                              Printf.printf "line %d, from character %d~\n" line charnum;
+                              Printf.printf "this expression has  type\n";
+                              Emit_syntax.print_type stdout t2;
+                              Printf.printf "\nbut an expression was expected of type\n";
+                              Emit_syntax.print_type stdout t1;
+  |Typing.Occur (t1,t2,pos)-> close_in inchan;
+                              close_out outchan;
+                              close_out outchan2;
+                              close_out outchan3;
+                              close_out outchan4;
+                              let line = pos.Syntax.line in
+                              let charnum= pos.Syntax.characters in
+                              Printf.printf "line %d, from character %d~\n" line charnum;
+                              Printf.printf "this expression has  type\n";
+                              Emit_syntax.print_type stdout t2;
+                              Printf.printf "\nbut an expression was expected of type\n";
+                              Emit_syntax.print_type stdout t1;
+                              Printf.printf "\n this is occurcheck error"
+
+  |e -> (close_in inchan; close_out outchan; raise e)
 
 let () = (* ここからコンパイラの実行が開始される (caml2html: main_entry) *)
   let files = ref [] in

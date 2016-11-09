@@ -7,7 +7,7 @@ open Syntax
        
 let rec  print_type oc ty =
   match ty with
-  |Type.Unit ->fprintf oc "()"
+  |Type.Unit  ->fprintf oc "()"
   |Type.Bool ->fprintf oc "bool"
   |Type.Int ->fprintf oc "int"
   |Type.Float ->fprintf oc "float"
@@ -24,17 +24,17 @@ let rec  print_type oc ty =
                       fprintf oc ")"
   |Type.Array t ->print_type oc t;
              fprintf oc " array"
-  |Type.Var r ->match !r with
+  |Type.Var r ->(match !r with
            |None ->fprintf oc "none"
-           |Some t ->print_type oc t
-    
+           |Some t ->print_type oc t)
+                                
 let rec g oc tree depth =
   fprintf oc "%*s" depth "";
   match tree with
-  |Unit ->fprintf oc "UNI\n"
-  |Bool b ->fprintf oc "Bool %B\n" b
-  |Int i ->fprintf oc "Int %d\n" i
-  |Float f->fprintf oc "Float %f\n" f
+  |Unit _->fprintf oc "UNI\n"
+  |Bool (b,_)  ->fprintf oc "Bool %B\n" b
+  |Int (i,_) ->fprintf oc "Int %d\n" i
+  |Float (f,_)->fprintf oc "Float %f\n" f
   |Not t ->fprintf oc "Not\n";
            g oc t (depth +1)
   |Neg t ->fprintf oc "Neg\n";
@@ -79,10 +79,10 @@ let rec g oc tree depth =
                           fprintf oc "%*s%s\n" (depth+1) "" id1;
                           g oc t2 (depth+1);
                           g oc t3 (depth+1);
-  |Var v ->fprintf oc "(%s)\n" v;
+  |Var (v,_) ->fprintf oc "(%s)\n" v;
   |LetRec (fundef,t1)->fprintf oc "LetRec\n";
                        fprintf oc "%*s" (depth+1) "";
-                       let {name=(n1,ty1);args=arglist;body=funbody}=fundef in
+                       let {name=(n1,ty1),_;args=arglist;body=funbody}=fundef in
                        fprintf oc "<<";
                        fprintf oc " %s | " n1;
                        List.map (fun (id,ty)->fprintf oc "%s " id) arglist;
