@@ -195,8 +195,66 @@ let rec g env e = (* 型推論ルーチン (caml2html: typing_g) *)
          Unify _ ->raise (Error(Type.Int, t2,startpos e2)));
 	Type.Unit
 
+let cos_body = FSub(
+  Float(1.0),
+  (FSub(
+    FDiv(
+	  FMul(
+	  	Var("x"),Var("x")
+	  ),
+	  Float(2.0)), 
+	(FDiv(
+	  FMul(
+	    FMul(
+		  Var("x"),Var("x")
+		),
+		FMul(
+		  Var("x"),Var("x")
+		)
+	  ),
+	  Float(24.0))))))
+
+let add_cos_body e = LetRec ({name="cos", Type.Var (ref None);
+	args=[("x", Type.Float)];
+	body=cos_body}, e)
+
+let test_body = Sub(
+	Int(1), Int(1))
+
+let add_test e = LetRec ({name="test", Type.Var (ref None);
+	args=[("x", Type.Int)];
+	body=test_body}, e)
+
+let sin_body = FSub(
+  Var("x"),
+  (FSub(
+    FDiv(
+	  FMul(
+	  	Var("x"),
+		(FMul(Var("x"),Var("x")))
+	  ),
+	  Float(2.0)), 
+	(FDiv(
+	  FMul(
+	    FMul(
+		  Var("x"),Var("x")
+		),
+		FMul(
+		  Var("x"),(FMul(Var("x"),Var("x")))
+		)
+	  ),
+	  Float(24.0))))))
+
+let add_sin_body e = LetRec ({name="sin", Type.Var (ref None);
+	args=[("x", Type.Float)];
+	body=sin_body}, e)
+
+
+
        
 let f e =
+  let e = add_cos_body e in
+  let e = add_sin_body e in
   extenv := M.empty;
 (*
   (match deref_typ (g M.empty e) with
