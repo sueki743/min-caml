@@ -24,8 +24,8 @@ let locate x =(*stackmapにあるxのリストを作る*)
     | y :: zs when x = y -> 0 :: List.map succ (loc zs)
     | y :: zs -> List.map succ (loc zs) in
   loc !stackmap
-let offset x = 4 * List.hd (locate x)
-let stacksize () = align ((List.length !stackmap + 1) * 4)
+let offset x = 1 * List.hd (locate x)
+let stacksize () = (List.length !stackmap + 1) * 1
 
 let pp_id_or_imm = function
   | V(x) -> x
@@ -63,18 +63,19 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
      (match z' with
       |V(v)->Printf.fprintf oc "\tsub\t%s, %s, %s\n" x y v;
       |C(c)->Printf.fprintf oc "\taddi\t%s, %s, -%d\n" x y c;)
-  | NonTail(x), Mul(y,z) -> Printf.fprintf oc "\tsll\t%s, %s, 2\n" x y(*zが無駄、後で改善*)
-  | NonTail(x), Div(y,z) -> Printf.fprintf oc "\tsrl\t%s, %s, 2\n" x y
+  | NonTail(x), Mul(y,z) -> Printf.fprintf oc "\tmul\t%s, %s, %s\n" x y z
+  | NonTail(x), Div(y,z) -> Printf.fprintf oc "\tdiv\t%s, %s, %s\n" x y z
   | NonTail(x), SLL(y, c) -> Printf.fprintf oc "\tsll\t%s, %s, %d\n" x y c
   | NonTail(x), SRL(y, c) -> Printf.fprintf oc "\tsrl\t%s, %s, %d\n" x y c
+  | NonTail(x), SRA(y, c) -> Printf.fprintf oc "\tsra\t%s, %s, %d\n" x y c
   | NonTail(x), Lw(c,y) -> Printf.fprintf oc "\tlw\t%s, %d(%s)\n" x c y
   | NonTail(x), La(Id.L(y)) ->Printf.fprintf oc "\tla\t%s, %s\n" x y
   | NonTail(_), Sw(x,c,y) -> Printf.fprintf oc "\tsw\t%s, %d(%s)\n" x c y
   | NonTail(x), FLw(c,y) -> Printf.fprintf oc "\tlw.s\t%s, %d(%s)\n" x c y
   | NonTail(_), FSw(x,c,y) -> Printf.fprintf oc "\tsw.s\t%s, %d(%s)\n" x c y
-  | NonTail(x), FAdd(y, z) -> Printf.fprintf oc "\tadd.s\t%s, %s, %s\n" y z x
-  | NonTail(x), FSub(y, z) -> Printf.fprintf oc "\tsub.s\t%s, %s, %s\n" y z x
-  | NonTail(x), FMul(y, z) -> Printf.fprintf oc "\tmul.s\t%s, %s, %s\n" y z x
+  | NonTail(x), FAdd(y, z) -> Printf.fprintf oc "\tadd.s\t%s, %s, %s\n" x y z
+  | NonTail(x), FSub(y, z) -> Printf.fprintf oc "\tsub.s\t%s, %s, %s\n" x y z
+  | NonTail(x), FMul(y, z) -> Printf.fprintf oc "\tmul.s\t%s, %s, %s\n" x y z
   | NonTail(x), FInv(y) -> Printf.fprintf oc "\tinv.s\t%s, %s\n" x y
   | NonTail(x), FMov(y) -> Printf.fprintf oc "\tmov.s\t%s, %s\n" x y
   | NonTail(x), FNeg(y) -> Printf.fprintf oc "\tneg.s\t%s, %s\n" x y
@@ -86,7 +87,7 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
   | NonTail(_), Save(x, y)  when List.mem x allfregs && not (M.mem y !stackset) ->
      save y x;
       Printf.fprintf oc "\tsw.s\t%s, %d(%s)\n" x (offset y) reg_sp
-  | NonTail(_), Save(x, y) -> assert (M.mem y !stackset); ()(*スタック変数重複ダメ*)
+  | NonTail(_), Save(x, y) -> assert (M.mem y !stackset); ()(*同じ変数を2回退避はさせない。*)
   (* 復帰の仮想命令の実装 (caml2html: emit_restore) *)
   | NonTail(x), Restore(y) when List.mem x allregs ->
      Printf.fprintf oc "\tlw\t%s, %d(%s)\n" x (offset y) reg_sp
@@ -97,7 +98,7 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
   | Tail, (Nop | Sw _ | FSw _ | Comment _ | Save _ as exp) ->
       g' oc (NonTail(Id.gentmp Type.Unit), exp);
       Printf.fprintf oc "\tjr\t%s\n" reg_ra
-  | Tail, ( Add _ | Sub _ |Mul _|Div _| SLL _ | SRL _| Lw _ |La _ as exp) ->
+  | Tail, ( Add _ | Sub _ |Mul _|Div _| SLL _ | SRL _| SRA _| Lw _ |La _ as exp) ->
       g' oc (NonTail(regs.(0)), exp);
       Printf.fprintf oc "\tjr\t%s\n" reg_ra
   | Tail, ( FAdd _ | FSub _ | FMul _ | FInv _|FLw _ | FMov _|FNeg _  as exp) ->

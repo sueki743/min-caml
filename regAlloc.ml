@@ -132,6 +132,7 @@ and g' dest cont regenv = function (* 各命令のレジスタ割り当て 変�
 
   | SLL(x, i) -> (Ans(SLL(find x Type.Int regenv,i)), regenv)
   | SRL(x, i) -> (Ans(SRL(find x Type.Int regenv,i)), regenv)
+  | SRA(x, i) -> (Ans(SRA(find x Type.Int regenv,i)), regenv)
   | Lw(i, x) -> (Ans(Lw(i,find x Type.Int regenv)), regenv)
   | Sw(x, i, y) -> (Ans(Sw(find x Type.Int regenv,i, find y Type.Int regenv)), regenv)
   | FMov(x) -> (Ans(FMov(find x Type.Float regenv)), regenv)

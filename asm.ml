@@ -11,6 +11,7 @@ type t = (* 命令の列 (caml2html: sparcasm_t) *)
   | Div of Id.t * Id.t
   | SLL of Id.t * int
   | SRL of Id.t * int
+  | SRA of Id.t * int
   | Lw of int * Id.t
   | La of Id.l
   | Sw of Id.t *int * Id.t
@@ -81,7 +82,7 @@ let rec remove_and_uniq xs = function
 let fv_id_or_imm = function V(x) -> [x] | _ -> []
 let rec fv_exp = function
   |Nop|La _| Comment(_) | Restore(_) -> []
-  |FNeg (x)|FMov (x)| FInv (x)| Save(x, _)|SLL(x,_)|SRL(x,_)|Lw(_,x)|FLw(_,x) -> [x]
+  |FNeg (x)|FMov (x)| FInv (x)| Save(x, _)|SLL(x,_)|SRL(x,_)|SRA(x,_)|Lw(_,x)|FLw(_,x) -> [x]
   | Add(x, y') | Sub(x, y')   -> x :: fv_id_or_imm y'
   | Mul(x,y)|Div(x,y) | FAdd(x, y) | FSub(x, y) | FMul(x, y) |Sw(x,_,y)|FSw(x,_,y) -> [x; y]
   | IfEq(x, y', e1, e2) | IfLE(x, y', e1, e2) | IfGE(x, y', e1, e2) -> x :: fv_id_or_imm y' @ remove_and_uniq S.empty (fv e1 @ fv e2) (* uniq here just for efficiency *)
@@ -92,7 +93,7 @@ and fv = function
   | Ans(exp) -> fv_exp exp
   | Let((x, t), exp, e) ->
       fv_exp exp @ remove_and_uniq (S.singleton x) (fv e)
-let fv e = remove_and_uniq S.empty (fv e)
+(*let fv e = remove_and_uniq S.empty (fv e)*) (*<-what this??*)
 
 let rec concat e1 xt e2 =(*e1の結果をxtに束縛して、e2をつなげる*)
   match e1 with

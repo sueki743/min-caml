@@ -11,6 +11,7 @@ type t = (* 命令の列 (caml2html: sparcasm_t) *)
   | Div of Id.t * Id.t
   | SLL of Id.t * int
   | SRL of Id.t * int
+  | SRA of Id.t * int
   | Lw of int * Id.t
   | La of Id.l
   | Sw of Id.t *int * Id.t

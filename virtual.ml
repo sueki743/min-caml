@@ -26,10 +26,10 @@ let expand xts ini addf addi =
     xts
     ini
     (fun (offset, acc) x ->
-      let offset = align offset in(*なぜ？align*)
-      (offset + 4, addf x offset acc))
+      let offset =  offset in
+      (offset + 1, addf x offset acc))
     (fun (offset, acc) x t ->
-      (offset + 4, addi x t offset acc))
+      (offset + 1, addi x t offset acc))
 
 let rec g env = function (* 式の仮想マシンコード生成 (caml2html: virtual_g) *)
   | Closure.Unit -> Ans(Nop)
@@ -82,11 +82,11 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
       let offset, store_fv =
 	expand
 	  (List.map (fun y -> (y, M.find y env)) ys)(*この時点でysは環境に入ってる*)
-	  (4, e2')
+	  (1, e2')
 	  (fun y offset store_fv -> seq(FSw(y, offset, x), store_fv))
 	  (fun y _ offset store_fv -> seq(Sw(y, offset, x), store_fv)) in
       Let((x, t), Add(reg_hp,C(0)),
-	  Let((reg_hp, Type.Int), Add(reg_hp, C(align offset)),
+	  Let((reg_hp, Type.Int), Add(reg_hp, C(offset)),
 	      let z = Id.genid "l" in(*zにラベルのアドレスを入れる*)
 	      Let((z, Type.Int), La(l),
 		  seq(Sw(z, 0, x),(*ラベルの値をx参照先に保存*)
@@ -106,7 +106,7 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
 	  (fun x offset store -> seq(FSw(x, offset,y), store))(*次のstore値*)
 	  (fun x _ offset store -> seq(Sw(x,offset, y), store)) in
       Let((y, Type.Tuple(List.map (fun x -> M.find x env) xs)), Add(reg_hp,C(0)),
-	  Let((reg_hp, Type.Int), Add(reg_hp, C(align offset)),
+	  Let((reg_hp, Type.Int), Add(reg_hp, C( offset)),
 	      store))
   (*ヒープレジスタをoffset分伸ばして、yに組の先頭に入れてstoreする*)
   | Closure.LetTuple(xts, y, e2) ->
@@ -123,30 +123,25 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
 	    Let((x, t), Lw(offset,y), load)) in
       load
   | Closure.Get(x, y) -> (* 配列の読み出し (caml2html: virtual_get) *)
-      let offset = Id.genid "o" in
       (match M.find x env with
       | Type.Array(Type.Unit) -> Ans(Nop)
       | Type.Array(Type.Float) ->
-	 Let((offset, Type.Int), SLL(y, 2),
-             Let((reg_sw,Type.Int),Add(x,V(offset)),
-	         Ans(FLw(0,reg_sw))))(*メモリはバイトアクセス,ここでは64ビットサイズ*)
+         Let((reg_sw,Type.Int),Add(x,V(y)),
+	     Ans(FLw(0,reg_sw)))(*メモリはワードアクセス*)
       | Type.Array(_) ->
-         Let((offset, Type.Int), SLL(y,2),
-             Let((reg_sw,Type.Int),Add(x,V(offset)),
-	         Ans(Lw(0,reg_sw))))
+         Let((reg_sw,Type.Int),Add(x,V(y)),
+	         Ans(Lw(0,reg_sw)))
       | _ -> assert false)
   | Closure.Put(x, y, z) ->
       let offset = Id.genid "o" in
       (match M.find x env with
       | Type.Array(Type.Unit) -> Ans(Nop)
       | Type.Array(Type.Float) ->
-	 Let((offset, Type.Int), SLL(y, 2),
-             Let((reg_sw,Type.Int),Add(x,V(offset)),
-	      Ans(FSw(z, 0,reg_sw))))
+             Let((reg_sw,Type.Int),Add(x,V(y)),
+	      Ans(FSw(z, 0,reg_sw)))
       | Type.Array(_) ->
-	 Let((offset, Type.Int), SLL(y, 2),
-             Let((reg_sw,Type.Int),Add(x,V(offset)),
-	         Ans(Sw(z, 0,reg_sw))))
+         Let((reg_sw,Type.Int),Add(x,V(y)),
+	         Ans(Sw(z, 0,reg_sw)))
       | _ -> assert false)
   | Closure.ExtArray(Id.L(x)) -> Ans(La(Id.L("min_caml_" ^ x)))
 
@@ -156,7 +151,7 @@ let h { Closure.name = (Id.L(x), t); Closure.args = yts; Closure.formal_fv = zts
   let (offset, load) =
     expand
       zts
-      (4, g (M.add x t (M.add_list yts (M.add_list zts M.empty))) e)
+      (1, g (M.add x t (M.add_list yts (M.add_list zts M.empty))) e)
       (fun z offset load -> fletd(z, FLw(offset,x), load))
       (fun z t offset load -> Let((z, t), Lw(offset,x), load)) in
   (match t with
