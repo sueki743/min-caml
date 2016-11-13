@@ -8,6 +8,7 @@ NCSUFFIX = .opt
 CC = gcc
 CFLAGS = -g -O2 -Wall
 OCAMLLDFLAGS=-warn-error -31
+OCAMLFLAGS += -bin-annot
 
 default: debug-code top $(RESULT) do_test
 $(RESULT): debug-code top
@@ -68,5 +69,9 @@ min-caml.html: main.mli main.ml id.ml m.ml s.ml \
 release: min-caml.html
 	rm -fr tmp ; mkdir tmp ; cd tmp ; cvs -d:ext:sumii@min-caml.cvs.sf.net://cvsroot/min-caml export -Dtomorrow min-caml ; tar cvzf ../min-caml.tar.gz min-caml ; cd .. ; rm -fr tmp
 	cp Makefile stub.c SPARC/libmincaml.S min-caml.html min-caml.tar.gz ../htdocs/
+
+
+clean:: nobackup
+	rm -f *.cm*
 
 include OCamlMakefile

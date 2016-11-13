@@ -127,7 +127,7 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
      (match y' with
       |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond y x;
              int_tail_if oc reg_cond regs.(0) e1 e2 "bne" "beq"
-      |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d" reg_sw regs.(0) i;
+      |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw regs.(0) i;
              Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond reg_sw x;
              int_tail_if oc reg_cond regs.(0) e1 e2 "bne" "beq")
   | Tail, IfFEq(x, y, e1, e2) ->

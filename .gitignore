@@ -6,6 +6,8 @@
 /test/*txt
 /*.cmi
 /*.cmo
+/*.cmt
+/*.cmti
 /*.o
 /lexer.ml
 /min-caml
