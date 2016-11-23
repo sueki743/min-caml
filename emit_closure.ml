@@ -54,7 +54,7 @@ let rec g oc tree depth =
   |Let ((id1,ty1),t2,t3) ->fprintf oc "Let\n";
                            print_id oc id1 (depth+1);
                            g oc t2 (depth+1);
-                           g oc t3 (depth+1);
+                           g oc t3 (depth);
   |Var v ->fprintf oc "((";Id.print_id oc v;fprintf oc "))\n"
   |MakeCls ((id1,ty1),cl,tree) ->fprintf oc "MakeCls\n";
                                  print_id oc id1 (depth+1);
@@ -63,28 +63,28 @@ let rec g oc tree depth =
                                  fprintf oc "<< ";
                                  Id.print_l oc en1;
                                  fprintf oc " | ";
-                                 List.map (fun id->Id.print_id oc id;fprintf oc " ") fvs;
+                                 ignore (List.map (fun id->Id.print_id oc id;fprintf oc " ") fvs);
                                  fprintf oc ">>\n";
-                                 g oc tree (depth+1)
+                                 g oc tree (depth)
   |AppCls (t1,ts) -> fprintf oc "AppCls\n";
-                  List.map (fun x ->print_id oc x (depth +1)) (t1::ts);
+                  ignore (List.map (fun x ->print_id oc x (depth +1)) (t1::ts));
                   ()
   |AppDir (t1,ts) ->fprintf oc "AppDir\n";
                     fprintf oc "%*s" (depth+1) "";Id.print_l oc t1;
                     fprintf oc "\n";
-                    List.map (fun x ->print_id oc x (depth +1)) ts;
+                    ignore (List.map (fun x ->print_id oc x (depth +1)) ts);
                     () 
   |Tuple ts ->fprintf oc "Tuple\n";
               (match ts with
                |[] -> fprintf oc "\n";
-               |_ ->List.map (fun x ->print_id oc x (depth +1)) ts;
+               |_ ->ignore (List.map (fun x ->print_id oc x (depth +1)) ts);
                     ())
   |LetTuple (ids1,t2,tree3)->fprintf oc "LetTuple\n";
                           fprintf oc "%*s" (depth+1) "";
-                          List.map (fun (id,ty)->Id.print_id oc id;fprintf oc " ") ids1;
+                          ignore (List.map (fun (id,ty)->Id.print_id oc id;fprintf oc " ") ids1);
                           fprintf oc "\n";
                           print_id oc t2 (depth+1);
-                          g oc tree3 (depth+1)
+                          g oc tree3 (depth)
   |Get (t1,t2) ->fprintf oc "Get\n";
                  print_id oc t1 (depth+1);
                  print_id oc t2 (depth+1);
@@ -102,10 +102,9 @@ let print_fundef oc fundef =
   fprintf oc "<< ";
   Id.print_l oc n1;
   fprintf oc " | ";
- 
-  List.map (fun (id,ty)->Id.print_id oc id;fprintf oc " ") arglist;
+  ignore (List.map (fun (id,ty)->Id.print_id oc id;fprintf oc " ") arglist);
   fprintf oc "| ";
-  List.map (fun (id,ty)->Id.print_id oc id;fprintf oc " ") fvlist;
+  ignore  (List.map (fun (id,ty)->Id.print_id oc id;fprintf oc " ") fvlist);
   fprintf oc "|\n\n";
   g oc funbody 1;
   fprintf oc "\n>>\n"
