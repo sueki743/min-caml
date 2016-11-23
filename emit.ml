@@ -170,12 +170,12 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
   | NonTail(a), CallCls(x, ys, zs) ->
       g'_args oc [(x, reg_cl)] ys zs;
       let ss = stacksize () in
-      Printf.fprintf oc "\tsw\t%s, %d(%s)\n" reg_ra (ss-4) reg_sp;
+      Printf.fprintf oc "\tsw\t%s, %d(%s)\n" reg_ra (ss-1) reg_sp;
       Printf.fprintf oc "\tlw\t%s, 0(%s)\n" reg_sw reg_cl;
       Printf.fprintf oc "\taddi\t%s, %s, %d,\n" reg_sp reg_sp ss;
       Printf.fprintf oc "\tjalr\t%s\n" reg_sw;(*reg_raをセットしてじゃんぶ*)
       Printf.fprintf oc "\taddi\t%s, %s, -%d\n" reg_sp reg_sp ss;(*即値引き算*)
-      Printf.fprintf oc "\tlw\t%s, %d(%s)\n" reg_ra (ss - 4) reg_sp;
+      Printf.fprintf oc "\tlw\t%s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
       if List.mem a allregs && a <> regs.(0) then
 	Printf.fprintf oc "\taddi\t%s, %s, 0\n" regs.(0) a
       else if List.mem a allfregs && a <> fregs.(0) then
@@ -183,11 +183,11 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
   | NonTail(a), CallDir(Id.L(x), ys, zs) ->
       g'_args oc [] ys zs;
       let ss = stacksize () in
-      Printf.fprintf oc "\tsw\t%s, %d(%s)\n" reg_ra (ss-4) reg_sp;
+      Printf.fprintf oc "\tsw\t%s, %d(%s)\n" reg_ra (ss-1) reg_sp;
       Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sp reg_sp ss;
       Printf.fprintf oc "\tjal\t%s\n" x;
       Printf.fprintf oc "\taddi\t%s, %s, -%d\n" reg_sp reg_sp ss;
-      Printf.fprintf oc "\tlw\t%s, %d(%s)\n" reg_ra (ss - 4) reg_sp;
+      Printf.fprintf oc "\tlw\t%s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
       if List.mem a allregs && a <> regs.(0) then
 	Printf.fprintf oc "\taddi\t%s, %s, 0\n" regs.(0) a
       else if List.mem a allfregs && a <> fregs.(0) then
