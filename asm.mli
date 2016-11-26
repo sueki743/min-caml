@@ -20,9 +20,14 @@ type t = (* 命令の列 (caml2html: sparcasm_t) *)
   | FAdd of Id.t * Id.t
   | FSub of Id.t * Id.t
   | FMul of Id.t * Id.t
-  | FInv of Id.t
+  | FDiv of Id.t * Id.t
   | FMov of Id.t
   | FNeg of Id.t
+  | Ftoi of Id.t
+  | Itof of Id.t
+  | FAbs of Id.t 
+  | FSqrt of Id.t 
+
   | Comment of string
   (* virtual instructions *)
   | IfEq of Id.t * id_or_imm * t * t

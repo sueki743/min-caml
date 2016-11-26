@@ -25,6 +25,12 @@ type t =
   | Get of Id.t * Id.t
   | Put of Id.t * Id.t * Id.t
   | ExtArray of Id.l
+  (*Knormal.Extfunappの内から当てはまるものを以下に変換*)
+  | Ftoi of Id.t
+  | Itof of Id.t
+  | FAbs of Id.t
+  | FSqrt of Id.t
+
 type fundef = { name : Id.l * Type.t;
 		args : (Id.t * Type.t) list;
 		formal_fv : (Id.t * Type.t) list;

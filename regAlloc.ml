@@ -140,7 +140,11 @@ and g' dest cont regenv = function (* 各命令のレジスタ割り当て 変�
   | FAdd(x, y) -> (Ans(FAdd(find x Type.Float regenv, find y Type.Float regenv)), regenv)
   | FSub(x, y) -> (Ans(FSub(find x Type.Float regenv, find y Type.Float regenv)), regenv)
   | FMul(x, y) -> (Ans(FMul(find x Type.Float regenv, find y Type.Float regenv)), regenv)
-  | FInv(x) ->(Ans(FInv(find x Type.Float regenv)), regenv)
+  | FDiv(x, y) -> (Ans(FDiv(find x Type.Float regenv, find y Type.Float regenv)), regenv)
+  | Ftoi(x) ->(Ans(Ftoi(find x Type.Float regenv)), regenv)
+  | Itof(x) ->(Ans(Itof(find x Type.Int regenv)), regenv)
+  | FAbs(x) ->(Ans(FAbs(find x Type.Float regenv)), regenv)
+  | FSqrt(x) ->(Ans(FSqrt(find x Type.Float regenv)), regenv)
   | FLw(i, x) -> (Ans(FLw(i,find x Type.Int regenv)), regenv)
   | FSw(x,i,y) -> (Ans(FSw(find x Type.Float regenv,i, find y Type.Int regenv)), regenv)
   | IfEq(x, y', e1, e2) as exp -> g'_if dest cont regenv exp (fun e1' e2' -> IfEq(find x Type.Int regenv, find' y' regenv, e1', e2')) e1 e2

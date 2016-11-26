@@ -29,3 +29,6 @@ let print_id oc id
 let print_l oc l
   =match l with
     L id ->Printf.fprintf oc "L(%s)" id
+
+let string_to_id (s:string) = s
+                       

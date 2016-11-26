@@ -41,6 +41,14 @@ let rec g oc tree depth =
   |FDiv (t1,t2) ->fprintf oc "FDiv\n";
                print_id oc t1 (depth+1);
                print_id oc t2 (depth+1);
+  |Ftoi (t1) ->fprintf oc "Ftoi\n";
+               print_id oc t1 (depth+1);
+  |Itof (t1) ->fprintf oc "Itof\n";
+               print_id oc t1 (depth+1);
+  |FAbs (t1) ->fprintf oc "FAbs\n";
+               print_id oc t1 (depth+1);
+  |FSqrt (t1) ->fprintf oc "FSqrt\n";
+               print_id oc t1 (depth+1);
   |IfEq (t1,t2,tree1,tree2) ->fprintf oc "IfEq\n";
                               print_id oc t1 (depth+1);
                               print_id oc t2 (depth+1);

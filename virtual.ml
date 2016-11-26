@@ -56,7 +56,11 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
   | Closure.FAdd(x, y) -> Ans(FAdd(x, y))
   | Closure.FSub(x, y) -> Ans(FSub(x, y))
   | Closure.FMul(x, y) -> Ans(FMul(x, y))
-  | Closure.FDiv(x, y) -> Let((reg_fsw,Type.Float),FInv(y),Ans(FMul(x, reg_fsw)))
+  | Closure.FDiv(x, y) -> Ans(FDiv(x, y))
+  | Closure.Ftoi(x) -> Ans(Ftoi (x))
+  | Closure.Itof(x) -> Ans(Itof (x))
+  | Closure.FAbs(x) ->Ans(FAbs(x))
+  | Closure.FSqrt(x) ->Ans(FSqrt(x))
   | Closure.IfEq(x, y, e1, e2) ->
       (match M.find x env with
       | Type.Bool | Type.Int -> Ans(IfEq(x, V(y), g env e1, g env e2))
@@ -133,7 +137,6 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
 	         Ans(Lw(0,reg_sw)))
       | _ -> assert false)
   | Closure.Put(x, y, z) ->
-      let offset = Id.genid "o" in
       (match M.find x env with
       | Type.Array(Type.Unit) -> Ans(Nop)
       | Type.Array(Type.Float) ->
