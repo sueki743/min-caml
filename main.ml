@@ -36,7 +36,23 @@ let lexbuf outchan outchan2 outchan3 outchan4 l glb_l= (* バッファをコンパイルし
 let string s glbchan = lexbuf stdout stdout stdout stdout (Lexing.from_string s) (Lexing.from_channel glbchan) (* 文字列をコンパイルして標準出力に表示する (caml2html: main_string) *)
 
 let file f = (* ファイルをコンパイルしてファイルに出力する (caml2html: main_file) *)
-  let inchan = open_in (f ^ ".ml") in
+
+  let catin = open_in (f ^ ".ml") in
+  let catout = open_out (f ^ ".mlo") in
+  let libin = open_in ("./mylib.ml") in
+	(let rec lib_sub () =
+	output_char catout (input_char libin);
+	lib_sub ()
+  in
+	(try lib_sub () with End_of_file -> ()));
+	(let rec cat_sub () =
+	output_char catout (input_char catin);
+	cat_sub ()
+  in
+	(try cat_sub () with End_of_file -> close_in catin; close_out catout));
+  
+
+  let inchan = open_in (f ^ ".mlo") in
   let glbchan = open_in ("globals.ml") in
   let outchan = open_out (f ^ ".s") in
   let outchan2 = open_out (f ^ "_syn.txt") in
