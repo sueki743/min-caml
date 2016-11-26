@@ -127,7 +127,7 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
      (match y' with
       |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond y x;
              int_tail_if oc reg_cond reg_zero e1 e2 "bne" "beq"
-      |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw regs.(0) i;
+      |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw reg_zero i;
              Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond reg_sw x;
              int_tail_if oc reg_cond reg_zero e1 e2 "bne" "beq")
   | Tail, IfFEq(x, y, e1, e2) ->
@@ -144,16 +144,16 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
   | NonTail(z), IfLE(x, y', e1, e2) ->
       (match y' with
        |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond x y;
-              int_nontail_if oc (NonTail(z)) reg_cond regs.(0) e1 e2 "bne" "beq"(*bneでe1へ分岐,beqでe2へ*)
+              int_nontail_if oc (NonTail(z)) reg_cond reg_zero e1 e2 "bne" "beq"(*bneでe1へ分岐,beqでe2へ*)
        |C i ->Printf.fprintf oc "\tslti\t%s, %s, %d\n" reg_cond x i;
-              int_nontail_if oc (NonTail(z)) reg_cond regs.(0) e1 e2 "bne" "beq" )
+              int_nontail_if oc (NonTail(z)) reg_cond reg_zero e1 e2 "bne" "beq" )
   | NonTail(z), IfGE(x, y', e1, e2) ->
      (match y' with
       |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond y x;
-             int_nontail_if oc (NonTail(z)) reg_cond regs.(0) e1 e2 "bne" "beq"
-      |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d" reg_sw regs.(0) i;
+             int_nontail_if oc (NonTail(z)) reg_cond reg_zero e1 e2 "bne" "beq"
+      |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d" reg_sw reg_zero i;
              Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond reg_sw x;
-             int_nontail_if oc (NonTail(z)) reg_cond regs.(0) e1 e2 "bne" "beq")
+             int_nontail_if oc (NonTail(z)) reg_cond reg_zero e1 e2 "bne" "beq")
   | NonTail(z), IfFEq(x, y, e1, e2) ->
       Printf.fprintf oc "\tc.eq.s\t%d, %s, %s\n" 0 x y;
       f_nontail_if oc (NonTail(z)) e1 e2 "bt.s" "bf.s" 0
