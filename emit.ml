@@ -120,16 +120,16 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
   | Tail, IfLE(x, y', e1, e2) ->
      (match y' with
       |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond x y;
-             int_tail_if oc reg_cond regs.(0) e1 e2 "bne" "beq"
+             int_tail_if oc reg_cond reg_zero e1 e2 "bne" "beq"
       |C i ->Printf.fprintf oc "\tslti\t%s, %s, %d\n" reg_cond x i;
-             int_tail_if oc reg_cond regs.(0) e1 e2 "bne" "beq")
+             int_tail_if oc reg_cond reg_zero e1 e2 "bne" "beq")
   | Tail, IfGE(x, y', e1, e2) ->
      (match y' with
       |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond y x;
-             int_tail_if oc reg_cond regs.(0) e1 e2 "bne" "beq"
+             int_tail_if oc reg_cond reg_zero e1 e2 "bne" "beq"
       |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw regs.(0) i;
              Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond reg_sw x;
-             int_tail_if oc reg_cond regs.(0) e1 e2 "bne" "beq")
+             int_tail_if oc reg_cond reg_zero e1 e2 "bne" "beq")
   | Tail, IfFEq(x, y, e1, e2) ->
      Printf.fprintf oc "\tc.eq.s\t%d, %s, %s\n" 0 x y;(*ccは0に決め打ち*)
       f_tail_if oc e1 e2 "bt.s" "bf.s" 0
