@@ -46,7 +46,7 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
 	  l
       in
       let x = Id.genid "l" in
-      Let((x, Type.Int), La(l), Ans(Lw(0, x)))(*１段に出来そう->出来ない*)
+      Let((x, Type.Int), La(l), Ans(FLw(0, x)))(*１段に出来そう->出来ない*)
   | Closure.Neg(x) -> Ans(Sub(reg_zero, V (x)))
   | Closure.Add(x, y) -> Ans(Add(x, V(y)))
   | Closure.Sub(x, y) -> Ans(Sub(x, V(y)))

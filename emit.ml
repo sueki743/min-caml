@@ -258,7 +258,7 @@ and g'_args oc x_reg_cl ys zs =(*関数呼び出しように、レジスタを�
       zs in
       List.iter
         (fun (z, fr) ->
-          Printf.fprintf oc "\taddi\t%s, %s, 0\n" fr z)
+          Printf.fprintf oc "\tmov.s\t%s, %s\n" fr z)
         (shuffle reg_fsw zfrs)
 
 let h oc { name = Id.L(x); args = _; fargs = _; body = e; ret = _ } =
