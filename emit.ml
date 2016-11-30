@@ -277,11 +277,11 @@ let f oc (Prog(data, fundefs, e)) =
       Printf.fprintf oc "\t0x%lx\n" (gethi d);)
     data;
   Printf.fprintf oc ".section\t\".text\"\n";
-  List.iter (fun fundef -> h oc fundef) fundefs;
   Printf.fprintf oc ".global\tmin_caml_start\n";
   Printf.fprintf oc "min_caml_start:\n";
-  (*Printf.fprintf oc "\tsave\t%%sp, -112, %%sp\n"; (* from gcc; why 112? *)*)
   stackset := M.empty;
   stackmap := [];
   g oc (NonTail("%g0"), e);
-  Printf.fprintf oc "\thlt\n"
+  Printf.fprintf oc "\tin\t%%r1\n";
+  Printf.fprintf oc "\tj\tmin_caml_start\n";
+  List.iter (fun fundef -> h oc fundef) fundefs
