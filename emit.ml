@@ -156,7 +156,7 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
      (match y' with
       |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond y x;
              int_nontail_if oc (NonTail(z)) reg_cond reg_zero e1 e2 "bne" "beq"
-      |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d" reg_sw reg_zero i;
+      |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw reg_zero i;
              Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond reg_sw x;
              int_nontail_if oc (NonTail(z)) reg_cond reg_zero e1 e2 "bne" "beq")
   | NonTail(z), IfFEq(x, y, e1, e2) ->
@@ -177,7 +177,7 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
       let ss = stacksize () in
       Printf.fprintf oc "\tsw\t%s, %d(%s)\n" reg_ra (ss-1) reg_sp;
       Printf.fprintf oc "\tlw\t%s, 0(%s)\n" reg_sw reg_cl;
-      Printf.fprintf oc "\taddi\t%s, %s, %d,\n" reg_sp reg_sp ss;
+      Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sp reg_sp ss;
       Printf.fprintf oc "\tjalr\t%s\n" reg_sw;(*reg_raをセットしてじゃんぶ*)
       Printf.fprintf oc "\taddi\t%s, %s, -%d\n" reg_sp reg_sp ss;(*即値引き算*)
       Printf.fprintf oc "\tlw\t%s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
@@ -281,7 +281,7 @@ let f oc (Prog(data, fundefs, e)) =
   Printf.fprintf oc "min_caml_start:\n";
   stackset := M.empty;
   stackmap := [];
-  g oc (NonTail("%g0"), e);
+  g oc (NonTail(regs.(0)), e);
   Printf.fprintf oc "\tin\t%%r1\n";
   Printf.fprintf oc "\tj\tmin_caml_start\n";
   List.iter (fun fundef -> h oc fundef) fundefs
