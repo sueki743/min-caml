@@ -6,16 +6,11 @@ let rec fhalf x = x *. 0.5 in
 let rec fsqr x = x *. x in
 let rec taylor_cos x =
 	let x2 = x *. x in
-	let x4 = x2 *. x2 in
-	let x6 = x2 *. x4 in
-		1.0 -. 0.5 *. x2 +. 0.04166368 *. x4 - 0.0013695068 *. x6 
+		1.0 -. x2 *. (0.5 -. x2 *. (0.04166368 -. x2 *. 0.0013695068))
 in
 let rec taylor_sin x =
 	let x2 = x *. x in
-	let x3 = x *. x2 in
-	let x5  = x3 *. x2 in
-	let x7 = x5 *. x2 in
-		x -. 0.16666668 *. x3  +. 0.008332824 *. x5 - 0.00019587841 *. x7
+		x *. (1.0 -. x2 *. (0.16666668 -. x2 *. (0.008332824 -. x2 *. 0.00019587841)))
 in
 (* 0付近の値のみ使うように最適化して、打ち切り誤差を減らす *)
 let rec cos x =
@@ -82,11 +77,7 @@ let rec sin x =
 in
 let rec taylor_atan x =
 	let x2 = x *. x in
-	let x3 = x *. x2 in
-	let x5 = x2 *. x3 in
-	let x7 = x2 *. x5 in
-	let x9 = x2 *. x7 in
-		x -. 0.3333333 *. x3 +. 0.2 *. x5 -. 0.142857142 *. x7 +. 0.111111104 *. x9
+		x *. (1.0 -. x2 *. (0.3333333 -. x2 *. (0.2 -. x2 *. (0.142857142 -. 0.111111104 *. x2))))
 in
 let rec atan x =
 	if x > 0.0 then
