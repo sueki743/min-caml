@@ -39,20 +39,10 @@ and multosll' env = function
                                      Ans(Sub(reg_zero,V(reg_sw))))(*-reg_sw*)
   |Div(x,y) when M.mem y env ->let i = M.find y env in
                                if(i=2)then
-                                 let s=Id.genid "s" in
-                                 Let((s,Type.Int),SRA(x,31),
-                                     Let((reg_sw,Type.Int),Add(x,V(s)),
-                                         Ans(SRL(reg_sw,1))))
+                                 Ans(SRL(x,1))(*minrtならこれでもok*)
                                else
                                  Ans(Div(x,y))(*mirtだとi=2のみ*)
-  |Div(x,y) when M.mem x env ->let i = M.find x env in
-                               if(i=2)then
-                                 let s=Id.genid "s" in
-                                 Let((s,Type.Int),SRA(y,31),
-                                     Let((reg_sw,Type.Int),Add(y,V(s)),
-                                         Ans(SRL(reg_sw,1))))
-                               else
-                                 Ans(Div(x,y))
+
   | IfEq(x, y', e1, e2) -> Ans(IfEq(x, y', multosll env e1, multosll env e2))
   | IfLE(x, y', e1, e2) -> Ans(IfLE(x, y', multosll env e1, multosll env e2))
   | IfGE(x, y', e1, e2) -> Ans(IfGE(x, y', multosll env e1, multosll env e2))
