@@ -93,7 +93,7 @@ let rec atan x =
 				if y < 0.4375 then
 					0.0 -. (0.78539818 +. taylor_atan ((y -. 1.0) /. (y +. 1.0)))
 				else
-					0.0 -. (1.57079637 -. taylor_atan (1.0 /. y)))
+					0.0 -. (1.57079637 -. taylor_atan (1.0 /. y))
 in
 let rec floor x =
 	float_of_int (int_of_float (x -. 0.5))
