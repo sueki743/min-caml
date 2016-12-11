@@ -21,9 +21,11 @@ type t =
   | AppCls of Id.t * Id.t list
   | AppDir of Id.l * Id.t list
   | Tuple of Id.t list
+  | ConstTuple of Id.l
   | LetTuple of (Id.t * Type.t) list * Id.t * t
   | Get of Id.t * Id.t
   | Put of Id.t * Id.t * Id.t
+  | ConstArray of Id.l
   | ExtArray of Id.l
   (*Knormal.Extfunappの内から当てはまるものを以下に変換*)
   | Ftoi of Id.t
@@ -38,4 +40,4 @@ type fundef = { name : Id.l * Type.t;
 type prog = Prog of fundef list * t
 
 val fv : t -> S.t
-val f : KNormal.t -> prog
+val f : HpAlloc.t -> prog

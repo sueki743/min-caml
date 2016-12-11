@@ -21,11 +21,14 @@ type t = (* クロージャ変換後の式 (caml2html: closure_t) *)
   | AppCls of Id.t * Id.t list
   | AppDir of Id.l * Id.t list
   | Tuple of Id.t list
+  | ConstTuple of Id.l
   | LetTuple of (Id.t * Type.t) list * Id.t * t
   | Get of Id.t * Id.t
   | Put of Id.t * Id.t * Id.t
+  | ConstArray of Id.l
   | ExtArray of Id.l
-  (*Knormal.Extfunappの内から当てはまるものを以下に変換*)
+  (*Knormal.Extfunappの内から当てはまるものを以下に変換
+    定数畳こみの効果より、knormalで導入する方が良かったかな*)
   | Ftoi of Id.t
   | Itof of Id.t
   | FAbs of Id.t 
@@ -35,10 +38,14 @@ type fundef = { name : Id.l * Type.t;
 		args : (Id.t * Type.t) list;
 		formal_fv : (Id.t * Type.t) list;
 		body : t }
-type prog = Prog of fundef list * t
+                
 
+type prog = Prog of (fundef list) * t
+
+let toplevel : fundef list ref = ref []
+                                      
 let rec fv = function
-  | Unit | Int(_) | Float(_) | ExtArray(_) -> S.empty
+  | Unit | Int(_) | Float(_) | ExtArray(_)|ConstArray(_)|ConstTuple(_) -> S.empty
   | Neg(x) | FNeg(x) -> S.singleton x
   | Add(x, y) | Sub(x, y)| Mul(x,y)| Div(x,y) | FAdd(x, y) | FSub(x, y) | FMul(x, y) | FDiv(x, y) | Get(x, y) -> S.of_list [x; y]
   | IfEq(x, y, e1, e2)| IfLE(x, y, e1, e2) -> S.add x (S.add y (S.union (fv e1) (fv e2)))
@@ -51,66 +58,240 @@ let rec fv = function
   | Put(x, y, z) -> S.of_list [x; y; z]
   | Ftoi (x) | Itof (x) ->S.singleton x
   | FAbs (x) |FSqrt (x) ->S.of_list [x]
+                                    
+                                    
 
-let toplevel : fundef list ref = ref []
+let const_fv constenv e =
+  S.filter (fun x->M.mem x constenv) (fv e) 
+    
+      
+let rec insert_const constenv = function
+  |Let(xt,e1,e2) ->
+    let const_set = const_fv constenv e1 in
+    (*constenvからconst_set中の変数を削除*)
+    let constenv' = M.filter (fun x ->(fun ct->not (S.mem x const_set))) constenv in
+    S.fold (fun x exp ->let (const,t)=M.find x constenv in
+                        Let((x,t),const,exp))
+             const_set
+             (Let(xt,e1,(insert_const constenv' e2)))
+  |LetTuple(xts,y,e) ->
+    (try
+       let (const,t) =M.find y constenv in
+       let constenv'=M.remove y constenv in
+       let e'=insert_const constenv' e in
+       Let((y,t),const,(LetTuple(xts,y,e')))
+     with
+       Not_found ->LetTuple(xts,y,insert_const constenv e))
+  |e ->
+    let const_set = const_fv constenv e in
+    S.fold (fun x exp ->let (const,t)=M.find x constenv in
+                          Let((x,t),const,exp))
+             const_set
+             e
+    
+                                     
+let rec eval constenv = function(*定数なら値を評価*)
+  |Unit|Int(_)|Float(_)|ConstTuple(_)|ConstArray(_) as const ->
+    Some const
+  |Add(x,y) when M.mem x constenv&&M.mem y constenv ->
+    let v1=(match M.find x constenv with
+            |(Int(i),_)->i|_ ->assert false) in
+    let v2=(match M.find y constenv with
+            |(Int(i),_)->i|_ ->assert false) in          
+    Some (Int(v1+v2))
+  |Sub(x,y) when M.mem x constenv&&M.mem y constenv ->
+    let v1=(match M.find x constenv with
+            |(Int(i),_)->i|_ ->assert false) in
+    let v2=(match M.find y constenv with
+            |(Int(i),_)->i|_ ->assert false) in          
+    Some (Int(v1-v2))
+  |Mul(x,y) when M.mem x constenv&&M.mem y constenv ->
+    let v1=(match M.find x constenv with
+            |(Int(i),_)->i|_ ->assert false) in
+    let v2=(match M.find y constenv with
+            |(Int(i),_)->i|_ ->assert false) in          
+    Some (Int(v1*v2))
+  |Div(x,y) when M.mem x constenv&&M.mem y constenv ->
+    let v1=(match M.find x constenv with
+            |(Int(i),_)->i|_ ->assert false) in
+    let v2=(match M.find y constenv with
+            |(Int(i),_)->i|_ ->assert false) in          
+    Some (Int(v1/v2))
+  |Neg(x) when M.mem x constenv ->
+    let v1=(match M.find x constenv with
+            |(Int(i),_)->i|_->assert false) in
+    Some (Int(-v1))
+  |FNeg(x) when M.mem x constenv ->
+    let v1=(match M.find x constenv with
+            |(Float(d),_)->d|_->assert false) in
+    Some (Float(-.v1))
+  |FAdd(x,y) when M.mem x constenv &&M.mem y constenv ->
+    let v1=(match M.find x constenv with
+            |(Float(d),_)->d|_->assert false) in
+    let v2=(match M.find y constenv with
+            |(Float(d),_)->d|_->assert false) in
+    Some (Float(v1+.v2))
+  |FSub(x,y) when M.mem x constenv &&M.mem y constenv ->
+    let v1=(match M.find x constenv with
+            |(Float(d),_)->d|_->assert false) in
+    let v2=(match M.find y constenv with
+            |(Float(d),_)->d|_->assert false) in
+    Some (Float(v1-.v2))
+  |FMul(x,y) when M.mem x constenv &&M.mem y constenv ->
+    let v1=(match M.find x constenv with
+            |(Float(d),_)->d|_->assert false) in
+    let v2=(match M.find y constenv with
+            |(Float(d),_)->d|_->assert false) in
+    Some (Float(v1*.v2))
+  |FDiv(x,y) when M.mem x constenv &&M.mem y constenv ->
+    let v1=(match M.find x constenv with
+            |(Float(d),_)->d|_->assert false) in
+    let v2=(match M.find y constenv with
+            |(Float(d),_)->d|_->assert false) in
+    Some (Float(v1/.v2))
+  |IfEq(_)|IfLE(_)->None (*if文は追わない*)
+  |Let((x,t),e1,e2) ->
+    (match eval constenv e1 with
+     |Some const ->eval (M.add x (const,t) constenv) e2
+     |None -> eval constenv e2)
+  |Var(x) when M.mem x constenv->
+    let (const,_)=M.find x constenv in
+    Some const
+  |MakeCls(x,cls,e)->eval constenv e
+  |AppCls _|AppDir _ ->None(*関数呼び出しは追わない*)
+  |Tuple _->None
+  |LetTuple(xts,y,e)->
+    (try
+      (match M.find y constenv with
+       |ConstTuple(l),_->
+         (match
+            List.find (fun {HpAlloc.name=(x,_);HpAlloc.body=_} ->l=x) !HpAlloc.tuples
+          with
+          |{HpAlloc.name=_;HpAlloc.body=y'}->
+            let constenv'=List.fold_left2
+                            (fun env (id,t) const ->
+                              let const = g M.empty M.empty S.empty const in
+                              (*t型に変換*)
+                              M.add id (const,t) env)
+                            constenv
+                            xts
+                            y' in
+            eval constenv' e)
+       |_ ->assert false)
+    with
+      Not_found->eval constenv e)
+  |Get _|Put _ |ExtArray _->None
+  |Ftoi(x) when M.mem x constenv ->
+    let v1=(match M.find x constenv with
+            |(Float(d),_)->d|_->assert false) in
+    Some (Int(int_of_float(v1)))
+  |Itof(x) when M.mem x constenv ->
+    let v1=(match M.find x constenv with
+            |(Int(i),_)->i|_->assert false) in
+    Some (Float(float_of_int(v1)))
+  |FAbs(x) when M.mem x constenv ->
+    let v1=(match M.find x constenv with
+            |(Float(d),_)->d|_->assert false) in
+    (if (v1>0.0) then
+        Some (Float(v1))
+      else
+        Some (Float(-.v1)))
+  |FSqrt(x) when M.mem x constenv ->
+    let v1=(match M.find x constenv with
+            |(Float(d),_)->d|_->assert false) in
+    Some (Float(sqrt(v1)))
+  |_ ->None
 
-let rec g env known = function (* クロージャ変換ルーチン本体 (caml2html: closure_g) *)
-  | KNormal.Unit -> Unit
-  | KNormal.Int(i) -> Int(i)
-  | KNormal.Float(d) -> Float(d)
-  | KNormal.Neg(x) -> Neg(x)
-  | KNormal.Add(x, y) -> Add(x, y)
-  | KNormal.Sub(x, y) -> Sub(x, y)
-  | KNormal.Mul(x, y) -> Mul(x, y)
-  | KNormal.Div(x, y) -> Div(x, y)
-  | KNormal.FNeg(x) -> FNeg(x)
-  | KNormal.FAdd(x, y) -> FAdd(x, y)
-  | KNormal.FSub(x, y) -> FSub(x, y)
-  | KNormal.FMul(x, y) -> FMul(x, y)
-  | KNormal.FDiv(x, y) -> FDiv(x, y)
-  | KNormal.IfEq(x, y, e1, e2) -> IfEq(x, y, g env known e1, g env known e2)
-  | KNormal.IfLE(x, y, e1, e2) -> IfLE(x, y, g env known e1, g env known e2)
-  | KNormal.Let((x, t), e1, e2) -> Let((x, t), g env known e1, g (M.add x t env) known e2)
-  | KNormal.Var(x) -> Var(x)
-  | KNormal.LetRec({ KNormal.name = (x, t); KNormal.args = yts; KNormal.body = e1 }, e2) -> (* 関数定義の場合 (caml2html: closure_letrec) *)
+and g env constenv known = function (* クロージャ変換ルーチン本体 (caml2html: closure_g) *)
+  (*env      :変数->型　の環境
+　　constenv :定数変数->(定数(colosure.t),型)　の環境
+    known    :直接適用可能な関数の集合*)
+  | HpAlloc.Unit -> Unit
+  | HpAlloc.Int(i) -> Int(i)
+  | HpAlloc.Float(d) -> Float(d)
+  | HpAlloc.Neg(x) -> Neg(x)
+  | HpAlloc.Add(x, y) -> Add(x, y)
+  | HpAlloc.Sub(x, y) -> Sub(x, y)
+  | HpAlloc.Mul(x, y) -> Mul(x, y)
+  | HpAlloc.Div(x, y) -> Div(x, y)
+  | HpAlloc.FNeg(x) -> FNeg(x)
+  | HpAlloc.FAdd(x, y) -> FAdd(x, y)
+  | HpAlloc.FSub(x, y) -> FSub(x, y)
+  | HpAlloc.FMul(x, y) -> FMul(x, y)
+  | HpAlloc.FDiv(x, y) -> FDiv(x, y)
+  | HpAlloc.IfEq(x, y, e1, e2) -> IfEq(x, y, g env constenv known e1, g env constenv known e2)
+  | HpAlloc.IfLE(x, y, e1, e2) -> IfLE(x, y, g env constenv known e1, g env constenv known e2)
+  | HpAlloc.Let((x, t),e1, e2) ->
+     let e1'=g env constenv known e1 in
+     (match eval constenv e1' with
+      |Some const ->let e2'=g (M.add x t env) (M.add x (const,t) constenv) known e2 in
+                    if(S.mem x (fv e2')) then
+                      Let((x,t),const,e2')
+                    else
+                      e2'(*xの定義不要*)
+      |None ->Let((x,t),e1',g (M.add x t env) constenv known e2))
+  | HpAlloc.Var(x) -> Var(x)
+  | HpAlloc.LetRec({ HpAlloc.name = (x, t); HpAlloc.args = yts; HpAlloc.body = e1 }, e2) -> (* 関数定義の場合 (caml2html: closure_letrec) *)
       (* 関数定義let rec x y1 ... yn = e1 in e2の場合は、
 	 xに自由変数がない(closureを介さずdirectに呼び出せる)
 	 と仮定し、knownに追加してe1をクロージャ変換してみる *)
       let toplevel_backup = !toplevel in
       let env' = M.add x t env in
       let known' = S.add x known in
-      let e1' = g (M.add_list yts env') known' e1 in
+      let e1' = g (M.add_list yts env') constenv  known' e1 in
+      let e1'=insert_const constenv e1' in(*定数変数に定義文を入れる*)
       (* 本当に自由変数がなかったか、変換結果e1'を確認する *)
       (* 注意: e1'にx自身が変数として出現する場合はclosureが必要!
          (thanks to nuevo-namasute and azounoman; test/cls-bug2.ml参照) *)
       let zs = S.diff (fv e1') (S.of_list (List.map fst yts)) in
       let known', e1' =
 	if S.is_empty zs then known', e1' else
-	(* 駄目だったら状態(toplevelの値)を戻して、クロージャ変換をやり直す *)
-	(Format.eprintf "free variable(s) %s found in function %s@." (Id.pp_list (S.elements zs)) x;
-	 Format.eprintf "function %s cannot be directly applied in fact@." x;
-	 toplevel := toplevel_backup;
-	 let e1' = g (M.add_list yts env') known e1 in
-	 known, e1') in
+	  (* 駄目だったら状態(toplevelの値)を戻して、クロージャ変換をやり直す *)
+	  (Format.eprintf "free variable(s) %s found in function %s@." (Id.pp_list (S.elements zs)) x;
+	   Format.eprintf "function %s cannot be directly applied in fact@." x;
+	   toplevel := toplevel_backup;
+	   let e1' = g (M.add_list yts env') constenv known e1 in
+           let e1' = insert_const constenv e1' in
+	   known, e1') in
       let zs = S.elements (S.diff (fv e1') (S.add x (S.of_list (List.map fst yts)))) in (* 自由変数のリスト *)
       let zts = List.map (fun z -> (z, M.find z env')) zs in (* ここで自由変数zの型を引くために引数envが必要 *)
       toplevel := { name = (Id.L(x), t); args = yts; formal_fv = zts; body = e1' } :: !toplevel; (* トップレベル関数を追加 *)
-      let e2' = g env' known' e2 in
+      let e2' = g env' constenv known' e2 in
       if S.mem x (fv e2') then (* xが変数としてe2'に出現するか *)
 	MakeCls((x, t), { entry = Id.L(x); actual_fv = zs }, e2') (* 出現していたら削除しない *)
       else
 	(Format.eprintf "eliminating closure(s) %s@." x;
 	 e2') (* 出現しなければMakeClsを削除 *)
-  | KNormal.App(x, ys) when S.mem x known -> (* 関数適用の場合 (caml2html: closure_app) *)
+  | HpAlloc.App(x, ys) when S.mem x known -> (* 関数適用の場合 (caml2html: closure_app) *)
       Format.eprintf "directly applying %s@." x;
       AppDir(Id.L(x), ys)
-  | KNormal.App(f, xs) -> AppCls(f, xs)
-  | KNormal.Tuple(xs) -> Tuple(xs)
-  | KNormal.LetTuple(xts, y, e) -> LetTuple(xts, y, g (M.add_list xts env) known e)
-  | KNormal.Get(x, y) -> Get(x, y)
-  | KNormal.Put(x, y, z) -> Put(x, y, z)
-  | KNormal.ExtArray(x) -> ExtArray(Id.L(x))
-  | KNormal.ExtFunApp(x, ys) ->if(x=Id.string_to_id "int_of_float") then
+  | HpAlloc.App(f, xs) -> AppCls(f, xs)
+  | HpAlloc.Tuple(xs) -> Tuple(xs)
+  | HpAlloc.ConstTuple(l)->ConstTuple(l)
+  | HpAlloc.LetTuple(xts, y, e) when M.mem y constenv ->
+      (match M.find y constenv with
+       |ConstTuple(l),_->
+         (match
+            List.find (fun {HpAlloc.name=(x,_);HpAlloc.body=_} ->l=x) !HpAlloc.tuples
+          with
+          |{HpAlloc.name=_;HpAlloc.body=y'}->
+            let constenv'=List.fold_left2
+                            (fun env (id,t) const ->
+                              let const = g M.empty M.empty S.empty const in
+                              (*t型に変換*)
+                              M.add id (const,t) env)
+                            constenv
+                            xts
+                            y' in
+            let e'=g (M.add_list xts env) constenv' known e in
+            LetTuple(xts, y, e'))
+       |_ ->assert false)
+  | HpAlloc.LetTuple(xts, y, e) -> LetTuple(xts, y, g (M.add_list xts env) constenv known e)
+  | HpAlloc.Get(x, y) -> Get(x, y)
+  | HpAlloc.Put(x, y, z) -> Put(x, y, z)
+  | HpAlloc.ExtArray(x) -> ExtArray(Id.L(x))
+  | HpAlloc.ConstArray(l)->ConstArray(l)
+  | HpAlloc.ExtFunApp(x, ys) ->if(x=Id.string_to_id "int_of_float") then
                                  (assert (List.length ys = 1);
                                   let arg1=List.hd ys in
                                   Ftoi arg1)
@@ -129,7 +310,9 @@ let rec g env known = function (* クロージャ変換ルーチン本体 (caml2html: closure
                                 else
                                  AppDir(Id.L("min_caml_" ^ x), ys)
 
+
+                                       
 let f e =
   toplevel := [];
-  let e' = g M.empty S.empty e in
+  let e' = g M.empty M.empty S.empty e in
   Prog(List.rev !toplevel, e')

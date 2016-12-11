@@ -87,6 +87,7 @@ let rec g oc tree depth =
                |[] -> fprintf oc "\n";
                |_ ->ignore (List.map (fun x ->print_id oc x (depth +1)) ts);
                     ())
+  |ConstTuple (Id.L(x))->fprintf oc "ConstTuple %s\n" x;
   |LetTuple (ids1,t2,tree3)->fprintf oc "LetTuple\n";
                           fprintf oc "%*s" (depth+1) "";
                           ignore (List.map (fun (id,ty)->Id.print_id oc id;fprintf oc " ") ids1);
@@ -100,6 +101,7 @@ let rec g oc tree depth =
                print_id oc t1 (depth+1);
                print_id oc t2 (depth+1);
                print_id oc t3 (depth+1)
+  |ConstArray (Id.L(x))->fprintf oc "ConstArray %s\n" x
   |ExtArray t ->fprintf oc "ExtArray\n";
                 fprintf oc "%*s" (depth+1) "";
                 Id.print_l oc t;fprintf oc "\n"
