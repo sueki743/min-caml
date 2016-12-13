@@ -38,9 +38,9 @@ let rec cos x =
 							0.0 -. taylor_cos (1.5707963705 -. y)
 					else
 						if y < 2.35619455 then
-							taylor_cos (y -. 1.5707963705)
+							taylor_sin (y -. 1.5707963705)
 						else
-							taylor_sin (3.1415927410 -. y)
+							taylor_cos (3.1415927410 -. y)
 	else
 		cos (0.0 -. x)
 in
