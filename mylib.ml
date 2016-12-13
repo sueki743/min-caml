@@ -38,46 +38,46 @@ let rec cos x =
 							0.0 -. taylor_cos (1.5707963705 -. y)
 					else
 						if y < 2.35619455 then
-							taylor_cos (y -. 1.5707963705)
+							taylor_sin (y -. 1.5707963705)
 						else
-							taylor_sin (3.1415927410 -. y)
+							taylor_cos (3.1415927410 -. y)
 	else
 		cos (0.0 -. x)
 in
 let rec sin x =
-	if x >= 0.0 then
-		if x >  6.28318548202514 then
-			sin (x -.  6.28318548202514)
-		else
-			if x < 3.1415927410 then
-				if x < 1.5707963705 then
-					if x < 0.785398185 then
-						taylor_sin x
-					else
-						taylor_cos (1.5707963705 -. x)
-				else
-					if x < 2.35619455 then
-						0.0 -. taylor_cos (x -. 1.5707963705)
-					else
-						0.0 -. taylor_sin (3.1415927410 -. x)
-			else
-				let y = x -. 3.1415927410 in
-					if y < 1.5707963705 then
-						if y < 0.785398185 then
-							0.0 -. taylor_sin y
-						else
-							0.0 -. taylor_cos (1.5707963705 -. y)
-					else
-						if y < 2.35619455 then
-							taylor_cos (y -. 1.5707963705)
-						else
-							taylor_sin (3.1415927410 -. y)
-	else
-		0.0 -. sin (0.0 -. x)
+    if x >= 0.0 then
+        if x >  6.28318548202514 then
+            sin (x -.  6.28318548202514)
+        else
+            if x < 3.1415927410 then
+                if x < 1.5707963705 then
+                    if x < 0.785398185 then
+                        taylor_sin x
+                    else
+                        taylor_cos (1.5707963705 -. x)
+                else
+                    if x < 2.35619455 then
+                        taylor_cos (x -. 1.5707963705)
+                    else
+                        taylor_sin (3.1415927410 -. x)
+            else
+                let y = x -. 3.1415927410 in
+                    if y < 1.5707963705 then
+                        if y < 0.785398185 then
+                            0.0 -. taylor_sin y
+                        else
+                            0.0 -. taylor_cos (1.5707963705 -. y)
+                    else
+                        if y < 2.35619455 then
+                            0.0 -. taylor_cos (y -. 1.5707963705)
+                        else
+                            0.0 -. taylor_sin (3.1415927410 -. y)
+    else
+        0.0 -. sin (0.0 -. x)
 in
 let rec taylor_atan x =
-	let x2 = x *. x in
-		x *. (1.0 -. x2 *. (0.3333333 -. x2 *. (0.2 -. x2 *. (0.142857142 -. 0.111111104 *. x2))))
+    let x2 = x *. x in
+        x *. (1.0 -. x2 *. (0.3333333 -. x2 *. (0.2 -. x2 *. (0.142857142 -. x2 *. (0.111111104 -. x2 *. (0.08976446 -. 0.060035485 *. x2))))))
 in
 let rec atan x =
 	if x > 0.0 then
