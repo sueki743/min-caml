@@ -24,25 +24,33 @@ min_caml_fneg:
 	neg.s	%f0, %f0
 	jr	%r31
 min_caml_read_int:
+	lui	%r1, 0
 	in	%r1
+	lui	%r2, 0
 	in	%r2
 	sll	%r2, %r2, 8
 	or	%r1, %r1, %r2
+	lui	%r2, 0
 	in	%r2
 	sll	%r2, %r2, 16
 	or	%r1, %r1, %r2
+	lui	%r2, 0
 	in	%r2
 	sll	%r2, %r2, 24
 	or	%r1, %r1, %r2
 	jr	%r31
 min_caml_read_float:
+	lui	%r1, 0
 	in	%r1
+	lui	%r2, 0
 	in	%r2
 	sll	%r2, %r2, 8
 	or	%r1, %r1, %r2
+	lui	%r2, 0
 	in	%r2
 	sll	%r2, %r2, 16
 	or	%r1, %r1, %r2
+	lui	%r2, 0
 	in	%r2
 	sll	%r2, %r2, 24
 	or	%r1, %r1, %r2

@@ -128,24 +128,26 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
 	    Let((x, t), Lw(offset,y), load)) in
       load
   | Closure.Get(x, y) -> (* 配列の読み出し (caml2html: virtual_get) *)
+     let address=Id.genid x in
       (match M.find x env with
       | Type.Array(Type.Unit) -> Ans(Nop)
       | Type.Array(Type.Float) ->
-         Let((reg_sw,Type.Int),Add(x,V(y)),
-	     Ans(FLw(0,reg_sw)))(*メモリはワードアクセス*)
+         Let((address,Type.Int),Add(x,V(y)),
+	     Ans(FLw(0,address)))(*メモリはワードアクセス*)
       | Type.Array(_) ->
-         Let((reg_sw,Type.Int),Add(x,V(y)),
-	         Ans(Lw(0,reg_sw)))
+         Let((address,Type.Int),Add(x,V(y)),
+	         Ans(Lw(0,address)))
       | _ -> assert false)
   | Closure.Put(x, y, z) ->
+     let address=Id.genid x in
       (match M.find x env with
       | Type.Array(Type.Unit) -> Ans(Nop)
       | Type.Array(Type.Float) ->
-             Let((reg_sw,Type.Int),Add(x,V(y)),
-	      Ans(FSw(z, 0,reg_sw)))
+             Let((address,Type.Int),Add(x,V(y)),
+	      Ans(FSw(z, 0,address)))
       | Type.Array(_) ->
-         Let((reg_sw,Type.Int),Add(x,V(y)),
-	         Ans(Sw(z, 0,reg_sw)))
+         Let((address,Type.Int),Add(x,V(y)),
+	         Ans(Sw(z, 0,address)))
       | _ -> assert false)
   | Closure.ConstArray(l) -> Ans(La(l))
   | Closure.ExtArray(Id.L(x)) -> Ans(La(Id.L("min_caml_" ^ x)))
