@@ -267,6 +267,32 @@ let h oc { name = Id.L(x); args = _; fargs = _; body = e; ret = _ } =
   stackmap := [];
   g oc (Tail, e)
 
+
+let print_const oc (e:HpAlloc.t)=
+  match e with
+  |HpAlloc.Unit ->()
+  |HpAlloc.Int(i) ->Printf.fprintf oc "\t0x%x\n" i
+  |HpAlloc.Float(d) ->Printf.fprintf oc "\t0x%lx\n" (gethi d)
+  |HpAlloc.ConstTuple(Id.L(x))|HpAlloc.ConstArray(Id.L(x))
+   ->Printf.fprintf oc "\t%s\n" x
+  |_ ->assert false(*eは定数でないといけない*)
+
+    
+let print_array oc {HpAlloc.name=(Id.L(x),t);HpAlloc.size=i;HpAlloc.initv=e}=
+  Printf.fprintf oc "%s:\t! array\n" x;
+  let rec print_elements n=
+    if(n=0) then () else
+      (print_const oc e;
+       print_elements (n-1)) in
+  print_elements i
+
+let print_tuple oc {HpAlloc.name=(Id.L(x),t);HpAlloc.body=es}=
+  Printf.fprintf oc "%s:\t! tuple\n" x;
+  List.iter
+    (print_const oc)
+    es
+
+    
 let f oc (Prog(data, fundefs, e)) =
   Format.eprintf "generating assembly...@.";
   Printf.fprintf oc ".section\t\".rodata\"\n";
@@ -276,6 +302,12 @@ let f oc (Prog(data, fundefs, e)) =
       Printf.fprintf oc "%s:\t! %f\n" x d;
       Printf.fprintf oc "\t0x%lx\n" (gethi d);)
     data;
+  List.iter(*静的な組*)
+    (print_tuple oc)
+    !HpAlloc.tuples;
+  List.iter(*静的な配列*)
+    (print_array oc)
+    !HpAlloc.arrays;
   Printf.fprintf oc ".section\t\".text\"\n";
   Printf.fprintf oc ".global\tmin_caml_start\n";
   Printf.fprintf oc "min_caml_start:\n";

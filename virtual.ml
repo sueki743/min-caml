@@ -52,7 +52,7 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
   | Closure.Sub(x, y) -> Ans(Sub(x, V(y)))
   | Closure.Mul(x, y) -> Ans(Mul(x,y))
   | Closure.Div(x, y) -> Ans(Div(x,y))
-  | Closure.FNeg(x) -> Ans(FNeg(x))(*FNegはあったほうが良い気がする。*)
+  | Closure.FNeg(x) -> Ans(FNeg(x))
   | Closure.FAdd(x, y) -> Ans(FAdd(x, y))
   | Closure.FSub(x, y) -> Ans(FSub(x, y))
   | Closure.FMul(x, y) -> Ans(FMul(x, y))
@@ -113,6 +113,7 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
 	  Let((reg_hp, Type.Int), Add(reg_hp, C( offset)),
 	      store))
   (*ヒープレジスタをoffset分伸ばして、yに組の先頭に入れてstoreする*)
+  | Closure.ConstTuple(l) ->Ans(La(l))
   | Closure.LetTuple(xts, y, e2) ->
       let s = Closure.fv e2 in
       let (offset, load) =
@@ -148,6 +149,7 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
          Let((address,Type.Int),Add(x,V(y)),
 	         Ans(Sw(z, 0,address)))
       | _ -> assert false)
+  | Closure.ConstArray(l) -> Ans(La(l))
   | Closure.ExtArray(Id.L(x)) -> Ans(La(Id.L("min_caml_" ^ x)))
 
 (* 関数の仮想マシンコード生成 (caml2html: virtual_h) *)
