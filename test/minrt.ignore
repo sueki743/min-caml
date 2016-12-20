@@ -1,0 +1,94 @@
+xor
+# ユーティリティー
+sgn
+fneg_cond
+add_mod5
+# ベクトル操作のためのプリミティブ
+vecset
+vecfill
+vecbzero
+veccpy
+vecdist2
+vecunit
+vecunit_sgn
+veciprod
+veciprod2
+vecaccum
+vecadd
+vecmul
+vecscale
+vecaccumv
+# オブジェクトデータ構造へのアクセス関数
+o_texturetype
+o_form
+o_reflectiontype
+o_isinvert
+o_isrot
+o_param_a
+o_param_b
+o_param_c
+o_param_abc
+o_param_x
+o_param_y
+o_param_z
+o_diffuse
+o_hilight
+o_color_red
+o_color_green
+o_color_blue
+o_param_r1
+o_param_r2
+o_param_r3
+o_param_ctbl
+# Pixelデータのメンバアクセス関数群
+p_rgb
+p_intersection_points
+p_surface_ids
+p_calc_diffuse
+p_energy
+p_received_ray_20percent
+p_group_id
+p_set_group_id
+p_nvectors
+# 前処理済み方向ベクトルのメンバアクセス関数
+d_vec
+d_const
+# 平面鏡面体の反射情報
+r_surface_id
+r_dvec
+r_bright
+
+
+
+# データ読み込みの関数群
+rad
+# 直線とオブジェクトの交点を求める関数群
+quadratic
+bilinear
+# 間接光のサンプリングにつかう方向ベクトル群を計算する関数群
+tan
+
+
+
+# miniMLRuntime.mli
+fequal
+fless
+fispos
+fisneg
+fiszero
+fabs
+fneg
+fsqr
+fhalf
+sqrt
+floor
+int_of_float
+float_of_int
+cos
+sin
+atan
+read_float
+read_int
+create_array
+print_char
+print_int
