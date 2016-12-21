@@ -40,4 +40,5 @@ type fundef = { name : Id.l * Type.t;
 type prog = Prog of fundef list * t
 
 val fv : t -> S.t
+val eval:(t * Type.t) M.t ->t->t option
 val f : HpAlloc.t -> prog

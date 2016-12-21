@@ -31,7 +31,7 @@ let expand xts ini addf addi =
     (fun (offset, acc) x t ->
       (offset + 1, addi x t offset acc))
 
-let rec g env = function (* 式の仮想マシンコード生成 (caml2html: virtual_g) *)
+let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml2html: virtual_g) *)
   | Closure.Unit -> Ans(Nop)
   | Closure.Int(i) -> Ans(Add(reg_zero,C(i)))
   | Closure.Float(d) ->
@@ -63,18 +63,27 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
   | Closure.FSqrt(x) ->Ans(FSqrt(x))
   | Closure.IfEq(x, y, e1, e2) ->
       (match M.find x env with
-      | Type.Bool | Type.Int -> Ans(IfEq(x, V(y), g env e1, g env e2))
-      | Type.Float -> Ans(IfFEq(x, y, g env e1, g env e2))
+      | Type.Bool | Type.Int -> Ans(IfEq(x, V(y), g env constenv e1, g env constenv e2))
+      | Type.Float -> Ans(IfFEq(x, y, g env constenv e1, g env constenv e2))
       | _ -> failwith "equality supported only for bool, int, and float")
   | Closure.IfLE(x, y, e1, e2) ->
       (match M.find x env with
-      | Type.Bool | Type.Int -> Ans(IfLE(x, V(y), g env e1, g env e2))
-      | Type.Float -> Ans(IfFLE(x, y, g env e1, g env e2))
+      | Type.Bool | Type.Int -> Ans(IfLE(x, V(y), g env constenv e1, g env constenv e2))
+      | Type.Float -> Ans(IfFLE(x, y, g env constenv e1, g env constenv e2))
       | _ -> failwith "inequality supported only for bool, int, and float")
   | Closure.Let((x, t1), e1, e2) ->(*変数を登録していきながら、再起*)
-      let e1' = g env e1 in
-      let e2' = g (M.add x t1 env) e2 in(*xの型を登録すればコード作れる*)
-      concat e1' (x, t1) e2'
+     (match (Closure.eval) constenv e1 with
+      |Some const ->let e1'=g M.empty M.empty const in
+                    let e2'=g (M.add x t1 env) (M.add x (const,t1)
+                                                      constenv) e2 in
+                    if(List.mem x (fv e2')) then
+                      concat e1' (x,t1) e2'
+                    else
+                      e2'
+      |None ->
+        let e1' = g env constenv e1 in
+        let e2' = g (M.add x t1 env) constenv e2 in(*xの型を登録すればコード作れる*)
+        concat e1' (x, t1) e2')
   | Closure.Var(x) ->
      (match M.find x env with
       | Type.Unit -> Ans(Nop)
@@ -82,7 +91,7 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
       | _ -> Ans(Add(reg_zero,V (x))))
   | Closure.MakeCls((x, t), { Closure.entry = l; Closure.actual_fv = ys }, e2) -> (* クロージャの生成 (caml2html: virtual_makecls) *)
       (* Closureのアドレスをセットしてから、自由変数の値をストア *)
-      let e2' = g (M.add x t env) e2 in
+      let e2' = g (M.add x t env) constenv e2 in
       let offset, store_fv =
 	expand
 	  (List.map (fun y -> (y, M.find y env)) ys)(*この時点でysは環境に入ってる*)
@@ -119,7 +128,7 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
       let (offset, load) =
 	expand
 	  xts
-	  (0, g (M.add_list xts env) e2)(*変数の型さえ分かれば、コードが作れる*)
+	  (0, g (M.add_list xts env) constenv e2)(*変数の型さえ分かれば、コードが作れる*)
 	  (fun x offset load ->
 	    if not (S.mem x s) then load else (* [XX] a little ad hoc optimization *)
 	      fletd(x, FLw(offset, y), load))(*fletdは無害*)
@@ -127,18 +136,40 @@ let rec g env = function (* 式の仮想マシンコード生成 (caml2html: vir
 	    if not (S.mem x s) then load else (* [XX] a little ad hoc optimization *)
 	    Let((x, t), Lw(offset,y), load)) in
       load
-  | Closure.Get(x, y) -> (* 配列の読み出し (caml2html: virtual_get) *)
-     let address=Id.genid x in
-      (match M.find x env with
+  | Closure.Get(x, y) when M.mem y constenv ->
+     let i=(match M.find y constenv with ((Closure.Int(i)),_) ->i
+                                       |_ ->assert false )
+     in
+     (match M.find x env with
       | Type.Array(Type.Unit) -> Ans(Nop)
       | Type.Array(Type.Float) ->
+         Ans(FLw(i,x))(*メモリはワードアクセス*)
+      | Type.Array(_) ->
+	 Ans(Lw(i,x))
+      | _ -> assert false)
+  | Closure.Get(x, y) -> (* 配列の読み出し (caml2html: virtual_get) *)
+      let address=Id.genid x in
+      (match M.find x env with
+       | Type.Array(Type.Unit) -> Ans(Nop)
+       | Type.Array(Type.Float) ->
          Let((address,Type.Int),Add(x,V(y)),
 	     Ans(FLw(0,address)))(*メモリはワードアクセス*)
       | Type.Array(_) ->
          Let((address,Type.Int),Add(x,V(y)),
 	         Ans(Lw(0,address)))
       | _ -> assert false)
-  | Closure.Put(x, y, z) ->
+   | Closure.Put(x, y, z) when M.mem y constenv ->
+      let i=(match M.find y constenv with ((Closure.Int(i)),_) ->i
+                                        |_ ->assert false )
+      in
+      (match M.find x env with
+      | Type.Array(Type.Unit) -> Ans(Nop)
+      | Type.Array(Type.Float) ->
+	      Ans(FSw(z, i,x))
+      | Type.Array(_) ->
+	 Ans(Sw(z, i,x))
+      | _ -> assert false)
+   | Closure.Put(x, y, z) ->
      let address=Id.genid x in
       (match M.find x env with
       | Type.Array(Type.Unit) -> Ans(Nop)
@@ -158,7 +189,7 @@ let h { Closure.name = (Id.L(x), t); Closure.args = yts; Closure.formal_fv = zts
   let (offset, load) =
     expand
       zts
-      (1, g (M.add x t (M.add_list yts (M.add_list zts M.empty))) e)
+      (1, g (M.add x t (M.add_list yts (M.add_list zts M.empty))) M.empty e)
       (fun z offset load -> fletd(z, FLw(offset,x), load))
       (fun z t offset load -> Let((z, t), Lw(offset,x), load)) in
   (match t with
@@ -170,5 +201,5 @@ let h { Closure.name = (Id.L(x), t); Closure.args = yts; Closure.formal_fv = zts
 let f (Closure.Prog(fundefs, e)) =
   data := [];
   let fundefs = List.map h fundefs in
-  let e = g M.empty e in
+  let e = g M.empty M.empty e in
   Prog(!data, fundefs, e)
