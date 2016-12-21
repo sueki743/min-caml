@@ -163,9 +163,11 @@ let rec g_unchange =function(*knormal.t->hpAlloc.t、そのまま変換*)
   | KNormal.ExtArray(x) -> ExtArray(x)
   | KNormal.ExtFunApp(x, ys) ->ExtFunApp(x,ys)
 
-         
+let not_changed_array =ref []
+
+                           
 let rec g constenv = function
-    (*constenv: 変数->z(定数(t型),その型)*)
+  (*constenv: 変数->z(定数(t型),その型)*)
   | KNormal.Unit -> Unit
   | KNormal.Int(i) -> Int(i)
   | KNormal.Float(d) -> Float(d)
@@ -184,8 +186,8 @@ let rec g constenv = function
   | KNormal.Let((x, t),e1, e2) ->
      let e1'=g constenv e1 in
      (match eval constenv e1' with
-     |Some const ->(*定数*)
-        let e2'=g (M.add x (const,t) constenv) e2 in
+      |Some const ->(*定数*)
+       let e2'=g (M.add x (const,t) constenv) e2 in
         Let((x,t), e1', e2')
      |None ->
        let e2' = g constenv e2 in
@@ -194,7 +196,7 @@ let rec g constenv = function
   | KNormal.LetRec({KNormal.name=(x,t);KNormal.args=ys;KNormal.body=e}, e2) ->
      let e'=g_unchange e in
      LetRec({name=(x,t);args=ys;body=e'},g constenv e2)
-  | KNormal.App(f, xs) -> App(f, xs)
+  | KNormal.App(f, xs) -> not_changed_array:=[];App(f, xs)
   | KNormal.Tuple(xs) ->
      (try
         let const_xs_ts =List.map (fun x ->M.find x constenv) xs in
@@ -207,7 +209,7 @@ let rec g constenv = function
         Not_found->Tuple(xs))
   | KNormal.LetTuple(xts, y, e) ->
      (try
-       (match M.find y constenv with(*yの要素の一部が定数の場合はまでは考えない*)
+        (match M.find y constenv with(*yの要素の一部が定数の場合はまでは考えない*)
         |ConstTuple(l),_->
           (match List.find (fun {name=(x,_);body=_} ->l=x) !tuples with
            |{name=_;body=y'}->
@@ -218,9 +220,27 @@ let rec g constenv = function
                              y' in
              LetTuple(xts,y,g constenv' e))
         |_ ->assert false)
-     with
-       Not_found -> LetTuple(xts, y, g constenv e))
+      with
+        Not_found -> LetTuple(xts, y, g constenv e))
+  | KNormal.Get(x, y) when M.mem x constenv->
+     (match M.find x constenv with
+      |ConstArray(l),_->
+        if(List.mem l !not_changed_array) then(*配列が初期値から変更なしの場合*)
+          (let a=List.find
+                  (fun {name=(l',_);size=_;initv=_}->l'=l)
+                  !arrays in
+          (match a with
+           |{name=_;size=_;initv=const}->const))
+        else
+          Get(x,y)
+      |_ ->assert false)
   | KNormal.Get(x, y) -> Get(x, y)
+  | KNormal.Put(x, y, z) when M.mem x constenv ->
+     (match M.find x constenv with
+      |ConstArray(l),_->not_changed_array:=(List.filter (fun l' ->not (l=l'))
+                                                        !not_changed_array);
+                      Put(x,y,z)
+      |_ ->assert false)
   | KNormal.Put(x, y, z) -> Put(x, y, z)
   | KNormal.ExtArray(x) -> ExtArray(x)
   | KNormal.ExtFunApp(l, [arg1;arg2]) when (l="create_array"||l="create_float_array")->
@@ -230,6 +250,7 @@ let rec g constenv = function
         let (arg2',t2)=M.find arg2 constenv in(*arg2の値を検索*)
         let x=Id.genid "const_array" in
         (arrays := {name=(Id.L(x),Type.Array(t2));size=arg1';initv=arg2'}::!arrays);
+        not_changed_array:=(Id.L(x))::!not_changed_array;
         ConstArray(Id.L(x))
       with Not_found ->(*size,initvが定数でなかった場合*)
            ExtFunApp(l, [arg1;arg2]))
