@@ -50,7 +50,7 @@ type dest = Tail | NonTail of Id.t (* 末尾かどうかを表すデータ型 (c
 let rec g oc = function (* 命令列のアセンブリ生成 (caml2html: emit_g) *)
   | dest, Ans(exp) -> g' oc (dest, exp)
   | dest, Let((x, t), exp, e) ->
-      g' oc (NonTail(x), exp);
+     g' oc (NonTail(x), exp);(*xがunit型の場合、xに依存しない出力になる*)
       g oc (dest, e)
 and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprime) *)
   (* 末尾でなかったら計算結果をdestにセット (caml2html: emit_nontail) *)
@@ -65,10 +65,12 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
       |C(c)->Printf.fprintf oc "\taddi\t%s, %s, -%d\n" x y c;)
   | NonTail(x), Mul(y,z) -> Printf.fprintf oc "\tmul\t%s, %s, %s\n" x y z
   | NonTail(x), Div(y,z) -> Printf.fprintf oc "\tdiv\t%s, %s, %s\n" x y z
+  | NonTail(x), Or(y, z) -> Printf.fprintf oc "\tor\t%s, %s, %s\n" x y z
   | NonTail(x), SLL(y, c) -> Printf.fprintf oc "\tsll\t%s, %s, %d\n" x y c
   | NonTail(x), SRL(y, c) -> Printf.fprintf oc "\tsrl\t%s, %s, %d\n" x y c
   | NonTail(x), SRA(y, c) -> Printf.fprintf oc "\tsra\t%s, %s, %d\n" x y c
   | NonTail(x), Lw(c,y) -> Printf.fprintf oc "\tlw\t%s, %d(%s)\n" x c y
+  | NonTail(x), Lui(c) -> Printf.fprintf oc "\tlui\t%s, %d\n" x c
   | NonTail(x), La(Id.L(y)) ->Printf.fprintf oc "\tla\t%s, %s\n" x y
   | NonTail(_), Sw(x,c,y) -> Printf.fprintf oc "\tsw\t%s, %d(%s)\n" x c y
   | NonTail(x), FLw(c,y) -> Printf.fprintf oc "\tlw.s\t%s, %d(%s)\n" x c y
@@ -83,6 +85,8 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
   | NonTail(x), Itof(y) -> Printf.fprintf oc "\titof\t%s, %s\n" x y
   | NonTail(x), FAbs(y) -> Printf.fprintf oc "\tabs.s\t%s, %s\n" x y
   | NonTail(x), FSqrt(y) -> Printf.fprintf oc "\tsqrt.s\t%s, %s\n" x y
+  | NonTail(x), In -> Printf.fprintf oc "\tlui\t%s, 0\n\tin\t%s\n" x x
+  | NonTail(_), Out(x) -> Printf.fprintf oc "\tout\t%s\n" x
   | NonTail(_), Comment(s) -> Printf.fprintf oc "\t! %s\n" s
   (* 退避の仮想命令の実装 (caml2html: emit_save) *)
   | NonTail(_), Save(x, y)  when List.mem x allregs && not (M.mem y !stackset) ->
@@ -99,10 +103,11 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
      assert (List.mem x allfregs);
      Printf.fprintf oc "\tlw.s\t%s, %d(%s)\n" x (offset y) reg_sp
   (* 末尾だったら計算結果を第一レジスタにセットしてret (caml2html: emit_tailret) *)
-  | Tail, (Nop | Sw _ | FSw _ | Comment _ | Save _ as exp) ->
+  | Tail, (Nop | Sw _ | FSw _ | Comment _ | Save _ |Out _ as exp) ->
       g' oc (NonTail(Id.gentmp Type.Unit), exp);
       Printf.fprintf oc "\tjr\t%s\n" reg_ra
-  | Tail, ( Add _ | Sub _ |Mul _|Div _| SLL _ | SRL _| SRA _| Lw _ |La _ |Ftoi _ as exp) ->
+  | Tail, ( Add _ | Sub _ |Mul _|Div _| SLL _ | SRL _| SRA _| Lw _ |La _ |Ftoi _
+            |In |Lui _ |Or _ as exp) ->
       g' oc (NonTail(regs.(0)), exp);
       Printf.fprintf oc "\tjr\t%s\n" reg_ra
   | Tail, ( FAdd _ | FSub _ | FMul _ | FDiv _|FLw _ | FMov _|FNeg _  

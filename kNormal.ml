@@ -26,11 +26,21 @@ type t = (* K正規化後の式 (caml2html: knormal_t) *)
   | Put of Id.t * Id.t * Id.t
   | ExtArray of Id.t
   | ExtFunApp of Id.t * Id.t list
+ (*以下を追加*)
+  |Ftoi of Id.t
+  |Itof of Id.t
+  |FAbs of Id.t
+  |FSqrt of Id.t
+  |Read_int of Id.t(*引数はunit型*)
+  |Read_float of Id.t(*引数はunit型*)
+  |Print_char of Id.t
+                   
 and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 
 let rec fv = function (* 式に出現する（自由な）変数 (caml2html: knormal_fv) *)
   | Unit | Int(_) | Float(_) | ExtArray(_) -> S.empty
-  | Neg(x) | FNeg(x) -> S.singleton x
+  | Neg(x) | FNeg(x)|Ftoi(x)|Itof(x)|FAbs(x)|FSqrt(x)|Print_char(x)
+    |Read_int(x)|Read_float(x)-> S.singleton x
   | Add(x, y) | Sub(x, y) |Mul(x,y)|Div(x,y)| FAdd(x, y) | FSub(x, y) | FMul(x, y) | FDiv(x, y) | Get(x, y) -> S.of_list [x; y]
   | IfEq(x, y, e1, e2) | IfLE(x, y, e1, e2) -> S.add x (S.add y (S.union (fv e1) (fv e2)))
   | Let((x, t), e1, e2) -> S.union (fv e1) (S.remove x (fv e2))
@@ -94,7 +104,29 @@ let rec g env = function (* K正規化ルーチン本体 (caml2html: knormal_g) *)
   | Syntax.FDiv(e1, e2) ->
       insert_let (g env e1)
 	(fun x -> insert_let (g env e2)
-	    (fun y -> FDiv(x, y), Type.Float))
+	                     (fun y -> FDiv(x, y), Type.Float))
+  | Syntax.Ftoi(e)->
+     insert_let (g env e)
+                (fun x ->Ftoi(x), Type.Int)
+  | Syntax.Itof(e)->
+     insert_let (g env e)
+                (fun x ->Itof(x), Type.Float)
+  | Syntax.FAbs(e)->
+     insert_let (g env e)
+                (fun x ->FAbs(x), Type.Float)
+  | Syntax.FSqrt(e)->
+     insert_let (g env e)
+                (fun x ->FSqrt(x), Type.Float)
+  | Syntax.Read_int(e)->
+     insert_let (g env e)
+                (fun x ->Read_int(x), Type.Int)
+  | Syntax.Read_float(e)->
+     insert_let (g env e)
+                (fun x ->Read_float(x), Type.Float)
+  | Syntax.Print_char(e) ->
+     insert_let (g env e)
+                (fun x ->Print_char(x), Type.Unit)
+                
   | Syntax.Eq _ | Syntax.LE _ as cmp ->
       g env (Syntax.If(cmp, Syntax.Bool(true,Syntax.startpos cmp), Syntax.Bool(false,Syntax.startpos cmp)))
   | Syntax.If(Syntax.Not(e1), e2, e3) -> g env (Syntax.If(e1, e3, e2)) (* notによる分岐を変換 (caml2html: knormal_not) *)
@@ -127,12 +159,13 @@ let rec g env = function (* K正規化ルーチン本体 (caml2html: knormal_g) *)
       let e2', t2 = g env' e2 in
       let e1', t1 = g (M.add_list yts env') e1 in
       LetRec({ name = (x, t); args = yts; body = e1' }, e2'), t2
+                                                                
   | Syntax.App(Syntax.Var(f,_), e2s) when not (M.mem f env) -> (* 外部関数の呼び出し (caml2html: knormal_extfunapp) *)
-      (match M.find f !Typing.extenv with
+     (match M.find f !Typing.extenv with
       | Type.Fun(_, t) ->
-	  let rec bind xs = function (* "xs" are identifiers for the arguments *)
-	    | [] -> ExtFunApp(f, xs), t
-	    | e2 :: e2s ->
+	 let rec bind xs = function (* "xs" are identifiers for the arguments *)
+	   | [] -> ExtFunApp(f, xs), t
+	   | e2 :: e2s ->
 		insert_let (g env e2)
 		  (fun x -> bind (xs @ [x]) e2s) in
 	  bind [] e2s (* left-to-right evaluation *)

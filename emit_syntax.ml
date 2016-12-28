@@ -114,6 +114,26 @@ let rec g oc tree depth =
                    g oc t1 (depth+1);
                    g oc t2 (depth+1);
                    g oc t3 (depth+1)
+  |Ftoi(t1) ->fprintf oc "Ftoi\n";
+              g oc t1 (depth+1)
+  |Itof(t1) ->fprintf oc "Itof\n";
+              g oc t1 (depth+1)
+  |FAbs(t1) ->fprintf oc "FAbs\n";
+              g oc t1 (depth+1)
+  |FSqrt(t1) ->fprintf oc "FSqrt\n";
+               g oc t1 (depth+1)
+  |Read_int(t1) ->fprintf oc "Read_int\n";
+                  g oc t1 (depth+1)
+  |Read_float(t1) ->fprintf oc "Read_float\n";
+                    g oc t1 (depth+1)
+  |Print_char(t1) ->fprintf oc "Print_char\n";
+              g oc t1 (depth+1)
+
+
+
+
+
+                      
                      
                                
 let f oc tree =g oc tree 0;

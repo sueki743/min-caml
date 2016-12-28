@@ -124,12 +124,12 @@ and g'_and_restore dest cont regenv exp = (* 使用される変数をスタッ�
     ((* Format.eprintf "restoring %s@." x; *)
      g dest cont regenv (Let((x, t), Restore(x), Ans(exp))))
 and g' dest cont regenv = function (* 各命令のレジスタ割り当て 変数をレジスタで置き換えていく*)
-  | Nop |La _ | Comment _ | Restore _ as exp -> (Ans(exp), regenv)
+  | Nop |La _ | Comment _ | Restore _|In |Lui _ as exp -> (Ans(exp), regenv)
   | Add(x, y') -> (Ans(Add(find x Type.Int regenv, find' y' regenv)), regenv)
   | Sub(x, y') -> (Ans(Sub(find x Type.Int regenv, find' y' regenv)), regenv)
   | Mul(x, y) -> (Ans(Mul(find x Type.Int regenv, find y Type.Int regenv)), regenv)
   | Div(x, y) -> (Ans(Div(find x Type.Int regenv, find y Type.Int regenv)), regenv)
-
+  | Or(x, y) -> (Ans(Or(find x Type.Int regenv, find y Type.Int regenv)), regenv)
   | SLL(x, i) -> (Ans(SLL(find x Type.Int regenv,i)), regenv)
   | SRL(x, i) -> (Ans(SRL(find x Type.Int regenv,i)), regenv)
   | SRA(x, i) -> (Ans(SRA(find x Type.Int regenv,i)), regenv)
@@ -145,6 +145,7 @@ and g' dest cont regenv = function (* 各命令のレジスタ割り当て 変�
   | Itof(x) ->(Ans(Itof(find x Type.Int regenv)), regenv)
   | FAbs(x) ->(Ans(FAbs(find x Type.Float regenv)), regenv)
   | FSqrt(x) ->(Ans(FSqrt(find x Type.Float regenv)), regenv)
+  | Out(x) ->(Ans(Out(find x Type.Int regenv)), regenv)
   | FLw(i, x) -> (Ans(FLw(i,find x Type.Int regenv)), regenv)
   | FSw(x,i,y) -> (Ans(FSw(find x Type.Float regenv,i, find y Type.Int regenv)), regenv)
   | IfEq(x, y', e1, e2) as exp -> g'_if dest cont regenv exp (fun e1' e2' -> IfEq(find x Type.Int regenv, find' y' regenv, e1', e2')) e1 e2

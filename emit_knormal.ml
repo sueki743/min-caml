@@ -93,5 +93,12 @@ let rec g oc tree depth =
   |ExtFunApp (t1,t2s)->fprintf oc "ExtFunApp\n";
                        print_id oc t1 (depth+1);
                        List.map (fun x->(print_id oc x (depth+1))) t2s;()
+  |Ftoi(t1) ->fprintf oc "Ftoi(%s)\n" t1
+  |Itof(t1) ->fprintf oc "Itof(%s)\n" t1
+  |FAbs(t1) ->fprintf oc "FAbs(%s)\n" t1
+  |FSqrt(t1) ->fprintf oc "FSqrt(%s)\n" t1
+  |Read_int(t1) ->fprintf oc "Read_int(%s)\n" t1
+  |Read_float(t1) ->fprintf oc "Read_float(%s)\n" t1
+  |Print_char(t1) ->fprintf oc "Print_char(%s)\n" t1
 
 let f oc tree=g oc tree 0;fprintf oc "\n\n\n\n\n" ;tree

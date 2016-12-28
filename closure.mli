@@ -27,11 +27,14 @@ type t =
   | Put of Id.t * Id.t * Id.t
   | ConstArray of Id.l
   | ExtArray of Id.l
-  (*Knormal.Extfunappの内から当てはまるものを以下に変換*)
   | Ftoi of Id.t
   | Itof of Id.t
   | FAbs of Id.t
   | FSqrt of Id.t
+  |Read_int of Id.t(*引数はunit型*)
+  |Read_float of Id.t(*引数はunit型*)
+  |Print_char of Id.t
+
 
 type fundef = { name : Id.l * Type.t;
 		args : (Id.t * Type.t) list;

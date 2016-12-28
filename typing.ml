@@ -50,6 +50,13 @@ let rec deref_term = function
   | Array(e1, e2) -> Array(deref_term e1, deref_term e2)
   | Get(e1, e2) -> Get(deref_term e1, deref_term e2)
   | Put(e1, e2, e3) -> Put(deref_term e1, deref_term e2, deref_term e3)
+  | Ftoi(e) ->Ftoi(deref_term e)
+  | Itof(e) ->Itof(deref_term e)
+  | FAbs(e) ->FAbs(deref_term e)
+  | FSqrt(e) ->FSqrt(deref_term e)
+  | Read_int(e) ->Read_int(deref_term e)
+  | Read_float(e) ->Read_float(deref_term e)
+  | Print_char(e) ->Print_char(deref_term e)
   | e -> e
 
 let rec occur r1 = function (* occur check (caml2html: typing_occur) *)
@@ -111,7 +118,42 @@ let rec g env e = (* 型推論ルーチン (caml2html: typing_g) *)
        let t1 = g env e in
        (try unify Type.Float t1 with
          Unify _ ->raise (Error (Type.Float,deref_typ t1,startpos e)));
-         Type.Float
+       Type.Float
+    | Ftoi(e) ->
+       let t1 = g env e in
+       (try unify Type.Float t1 with
+         Unify _ ->raise (Error (Type.Float,deref_typ t1,startpos e)));
+       Type.Int
+    | Itof(e) ->
+       let t1 = g env e in
+       (try unify Type.Int t1 with
+         Unify _ ->raise (Error (Type.Int,deref_typ t1,startpos e)));
+       Type.Float
+    | FAbs(e) ->
+       let t1 = g env e in
+       (try unify Type.Float t1 with
+         Unify _ ->raise (Error (Type.Float,deref_typ t1,startpos e)));
+       Type.Float
+    | FSqrt(e) ->
+       let t1 = g env e in
+       (try unify Type.Float t1 with
+         Unify _ ->raise (Error (Type.Float,deref_typ t1,startpos e)));
+       Type.Float
+    | Read_int(e) ->
+       let t1 = g env e in
+       (try unify Type.Unit t1 with
+         Unify _ ->raise (Error (Type.Unit,deref_typ t1,startpos e)));
+       Type.Int
+    | Read_float(e) ->
+       let t1 = g env e in
+       (try unify Type.Unit t1 with
+         Unify _ ->raise (Error (Type.Unit,deref_typ t1,startpos e)));
+       Type.Float
+    | Print_char(e) ->
+       let t1 = g env e in
+       (try unify Type.Int t1 with
+         Unify _ ->raise (Error (Type.Int,deref_typ t1,startpos e)));
+       Type.Unit
     | FAdd(e1, e2) | FSub(e1, e2) | FMul(e1, e2) | FDiv(e1, e2) ->
        let t1 = g env e1 in
        let t2 = g env e2 in

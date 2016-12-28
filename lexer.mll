@@ -78,6 +78,22 @@ rule token = parse
     { IDENT(Id.gentmp Type.Unit) }
 | "Array.create" | "Array.make"|"create_array" (* [XX] ad hoc *)
     { ARRAY_CREATE }
+| "read_int"
+    { READ_INT}
+| "read_float"
+    { READ_FLOAT }
+| "print_char"
+    { PRINT_CHAR }
+| "int_of_float"
+    { FTOI }
+|  "float_of_int"
+    { ITOF }
+|  "sqrt"
+    { FSQRT}
+|  "fabs"
+    { FABS }
+|  "fneg"
+    { FNEG }
 | '.'
     { DOT }
 | "<-"

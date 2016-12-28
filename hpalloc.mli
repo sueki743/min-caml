@@ -28,6 +28,14 @@ type t =
   | ExtArray of Id.t
   | ConstArray of Id.l
   | ExtFunApp of Id.t * Id.t list
+  |Ftoi of Id.t
+  |Itof of Id.t
+  |FAbs of Id.t
+  |FSqrt of Id.t
+  |Read_int of Id.t(*引数はunit型*)
+  |Read_float of Id.t(*引数はunit型*)
+  |Print_char of Id.t
+
  and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 
 type arraydef = {name :Id.l * Type.t;

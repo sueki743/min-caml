@@ -26,6 +26,15 @@ type t = (* MinCamlの構文を表現するデータ型 (caml2html: syntax_t) *)
   | Array of t * t
   | Get of t * t
   | Put of t * t * t
+  (*以下を追加*)
+  |Ftoi of t
+  |Itof of t
+  |FAbs of t
+  |FSqrt of t
+  |Read_int of t
+  |Read_float of t
+  |Print_char of t
+
  and fundef = { name : (Id.t * Type.t) *pos; args : (Id.t * Type.t) list; body : t }
  and pos = {line : int ; characters : int}
 
@@ -35,7 +44,7 @@ let rec  startpos e =
     ->pos
    |Not t |Neg t |Add (t,_) |Sub (t,_) |Mul (t,_) | Div (t,_)
     |FNeg t|FAdd (t,_) |FSub (t,_) |FMul (t,_) |FDiv (t,_) |Eq (t,_)
-    |LE (t,_) |If (t,_,_) |App (t,_) |Tuple (t::_) |Array (t,_) | Get (t,_) |Put (t,_,_)
+    |LE (t,_) |If (t,_,_) |App (t,_) |Tuple (t::_) |Array (t,_) | Get (t,_) |Put (t,_,_)|Ftoi(t)|Itof(t)|FAbs(t)|FSqrt(t)|Read_int(t)|Read_float(t)|Print_char(t)
     ->startpos t
    |Let (_,t,_)|LetTuple (_,t,_)
     ->startpos t

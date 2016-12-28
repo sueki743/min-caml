@@ -31,6 +31,57 @@ let expand xts ini addf addi =
     (fun (offset, acc) x t ->
       (offset + 1, addi x t offset acc))
 
+let read_int_virtual () =
+  let x1 = Id.genid "x" in
+  let x2 = Id.genid "x" in
+  let x3 = Id.genid "x" in
+  let y1 = Id.genid "y" in
+  let y2 = Id.genid "y" in
+  let y3 = Id.genid "y" in
+  let y4 = Id.genid "y" in
+  let y5 = Id.genid "y" in
+  let y6 = Id.genid "y" in
+  Let((x1,Type.Int),In,
+      (Let((y1,Type.Int),In,
+           (Let((y2,Type.Int),SLL(y1,8),
+                (Let((x2,Type.Int),Or(x1,y2),
+                     (Let((y3,Type.Int),In,
+                          (Let((y4,Type.Int),SLL(y3,16),
+                               (Let((x3,Type.Int),Or(x2,y4),
+                                    (Let((y5,Type.Int),In,
+                                         (Let((y6,Type.Int),SLL(y5,24),
+                                              (Ans(Or(y6,x3))))))))))))))))))))
+
+let read_float_virtual () =
+  let x1 = Id.genid "x" in
+  let x2 = Id.genid "x" in
+  let x3 = Id.genid "x" in
+  let x4 = Id.genid "x" in
+  let y1 = Id.genid "y" in
+  let y2 = Id.genid "y" in
+  let y3 = Id.genid "y" in
+  let y4 = Id.genid "y" in
+  let y5 = Id.genid "y" in
+  let y6 = Id.genid "y" in
+  let dummy= Id.genid "unit" in
+  Let((x1,Type.Int),In,
+      (Let((y1,Type.Int),In,
+           (Let((y2,Type.Int),SLL(y1,8),
+                (Let((x2,Type.Int),Or(x1,y2),
+                     (Let((y3,Type.Int),In,
+                          (Let((y4,Type.Int),SLL(y3,16),
+                               (Let((x3,Type.Int),Or(x2,y4),
+                                    (Let((y5,Type.Int),In,
+                                         (Let((y6,Type.Int),SLL(y5,24),
+                                              (Let((x4,Type.Int),Or(y6,x3),
+                                                   (Let((dummy,Type.Unit),Sw(x4,0,reg_hp),
+                                                        (Ans(FLw(0,reg_hp))))))))))))))))))))))))
+
+let print_char_virtual x =Ans(Out(x))
+  
+
+                                 
+  
 let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml2html: virtual_g) *)
   | Closure.Unit -> Ans(Nop)
   | Closure.Int(i) -> Ans(Add(reg_zero,C(i)))
@@ -61,6 +112,9 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
   | Closure.Itof(x) -> Ans(Itof (x))
   | Closure.FAbs(x) ->Ans(FAbs(x))
   | Closure.FSqrt(x) ->Ans(FSqrt(x))
+  | Closure.Read_int(x) ->read_int_virtual ()(*xはunitなので無視*)
+  | Closure.Read_float(x) ->read_float_virtual () (*xはunitなので無視*)
+  | Closure.Print_char(x) ->print_char_virtual x
   | Closure.IfEq(x, y, e1, e2) ->
       (match M.find x env with
       | Type.Bool | Type.Int -> Ans(IfEq(x, V(y), g env constenv e1, g env constenv e2))
@@ -76,10 +130,11 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
       |Some const ->let e1'=g M.empty M.empty const in
                     let e2'=g (M.add x t1 env) (M.add x (const,t1)
                                                       constenv) e2 in
-                    if(List.mem x (fv e2')) then
+                    concat e1' (x,t1) e2'
+                    (*if(List.mem x (fv e2')) then
                       concat e1' (x,t1) e2'
                     else
-                      e2'
+                      e2'*)
       |None ->
         let e1' = g env constenv e1 in
         let e2' = g (M.add x t1 env) constenv e2 in(*xの型を登録すればコード作れる*)

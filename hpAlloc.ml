@@ -28,6 +28,14 @@ type t =
   | ExtArray of Id.t
   | ConstArray of Id.l
   | ExtFunApp of Id.t * Id.t list
+  |Ftoi of Id.t
+  |Itof of Id.t
+  |FAbs of Id.t
+  |FSqrt of Id.t
+  |Read_int of Id.t(*引数はunit型*)
+  |Read_float of Id.t(*引数はunit型*)
+  |Print_char of Id.t
+
  and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 
 type arraydef = {name :Id.l * Type.t;
@@ -103,6 +111,22 @@ let rec eval constenv = function(*定数なら値を評価*)
     let v2=(match M.find y constenv with
             |(Float(d),_)->d|_->assert false) in
     Some (Float(v1/.v2))
+  |Ftoi(x) when M.mem x constenv ->
+    let v1=(match M.find x constenv with
+            |(Float(d),_)->d|_->assert false) in
+    Some (Int(int_of_float(v1)))
+  |Itof(x) when M.mem x constenv ->
+    let v1=(match M.find x constenv with
+            |(Int(i),_)->i|_->assert false) in
+    Some (Float(float_of_int(v1)))
+  |FAbs(x) when M.mem x constenv ->
+    let v1=(match M.find x constenv with
+            |(Float(d),_)->d|_->assert false) in
+    Some (if(v1<0.0)then(Float(-.v1)) else Float(v1))
+  |FSqrt(x) when M.mem x constenv ->
+    let v1=(match M.find x constenv with
+            |(Float(d),_)->d|_->assert false) in
+    Some(Float(sqrt(v1)))
   |IfEq(_)|IfLE(_)->None (*if文は追わない*)
   |Let((x,t),e1,e2) ->
     (match eval constenv e1 with
@@ -143,6 +167,13 @@ let rec g_unchange =function(*knormal.t->hpAlloc.t、そのまま変換*)
   | KNormal.Sub(x, y) -> Sub(x, y)
   | KNormal.Mul(x, y) -> Mul(x, y)
   | KNormal.Div(x, y) -> Div(x, y)
+  | KNormal.Ftoi(x) ->Ftoi(x)
+  | KNormal.Itof(x) ->Itof(x)
+  | KNormal.FAbs(x) ->FAbs(x)
+  | KNormal.FSqrt(x) ->FSqrt(x)
+  | KNormal.Read_int(x) ->Read_int(x)
+  | KNormal.Read_float(x) ->Read_float(x)
+  | KNormal.Print_char(x) ->Print_char(x)
   | KNormal.FNeg(x) -> FNeg(x)
   | KNormal.FAdd(x, y) -> FAdd(x, y)
   | KNormal.FSub(x, y) -> FSub(x, y)
@@ -181,6 +212,13 @@ let rec g constenv = function
   | KNormal.FSub(x, y) -> FSub(x, y)
   | KNormal.FMul(x, y) -> FMul(x, y)
   | KNormal.FDiv(x, y) -> FDiv(x, y)
+  | KNormal.Ftoi(x) ->Ftoi(x)
+  | KNormal.Itof(x) ->Itof(x)
+  | KNormal.FAbs(x) ->FAbs(x)
+  | KNormal.FSqrt(x) ->FSqrt(x)
+  | KNormal.Read_int(x) ->Read_int(x)
+  | KNormal.Read_float(x) ->Read_float(x)
+  | KNormal.Print_char(x) ->Print_char(x)
   | KNormal.IfEq(x, y, e1, e2) -> IfEq(x, y, g constenv e1, g constenv e2)
   | KNormal.IfLE(x, y, e1, e2) -> IfLE(x, y, g constenv e1, g constenv e2)
   | KNormal.Let((x, t),e1, e2) ->

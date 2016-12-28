@@ -48,7 +48,10 @@ let rec g oc tree depth =
   |FAbs (t1) ->fprintf oc "FAbs\n";
                print_id oc t1 (depth+1);
   |FSqrt (t1) ->fprintf oc "FSqrt\n";
-               print_id oc t1 (depth+1);
+                print_id oc t1 (depth+1);
+  |Read_int(t1) ->fprintf oc "Read_int(%s)\n" t1
+  |Read_float(t1) ->fprintf oc "Read_float(%s)\n" t1
+  |Print_char(t1)->fprintf oc "Print_char(%s)\n" t1
   |IfEq (t1,t2,tree1,tree2) ->fprintf oc "IfEq\n";
                               print_id oc t1 (depth+1);
                               print_id oc t2 (depth+1);

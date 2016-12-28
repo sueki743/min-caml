@@ -27,12 +27,14 @@ type t = (* クロージャ変換後の式 (caml2html: closure_t) *)
   | Put of Id.t * Id.t * Id.t
   | ConstArray of Id.l
   | ExtArray of Id.l
-  (*Knormal.Extfunappの内から当てはまるものを以下に変換
-    定数畳こみの効果より、knormalで導入する方が良かったかな*)
   | Ftoi of Id.t
   | Itof of Id.t
   | FAbs of Id.t 
   | FSqrt of Id.t
+  |Read_int of Id.t(*引数はunit型*)
+  |Read_float of Id.t(*引数はunit型*)
+  |Print_char of Id.t
+
 
 type fundef = { name : Id.l * Type.t;
 		args : (Id.t * Type.t) list;
@@ -56,7 +58,7 @@ let rec fv = function
   | AppDir(_, xs) | Tuple(xs) -> S.of_list xs
   | LetTuple(xts, y, e) -> S.add y (S.diff (fv e) (S.of_list (List.map fst xts)))
   | Put(x, y, z) -> S.of_list [x; y; z]
-  | Ftoi (x) | Itof (x) ->S.singleton x
+  | Ftoi (x) | Itof (x)|Read_int(x)|Read_float(x)|Print_char(x) ->S.singleton x
   | FAbs (x) |FSqrt (x) ->S.of_list [x]
                                     
                                     
@@ -219,16 +221,24 @@ and g env constenv known = function (* クロージャ変換ルーチン本体 (caml2html: cl
   | HpAlloc.FSub(x, y) -> FSub(x, y)
   | HpAlloc.FMul(x, y) -> FMul(x, y)
   | HpAlloc.FDiv(x, y) -> FDiv(x, y)
+  | HpAlloc.Ftoi(x)->Ftoi(x)
+  | HpAlloc.Itof(x)->Itof(x)
+  | HpAlloc.FAbs(x)->FAbs(x)
+  | HpAlloc.FSqrt(x)->FSqrt(x)
+  | HpAlloc.Read_int(x)->Read_int(x)
+  | HpAlloc.Read_float(x)->Read_float(x)
+  | HpAlloc.Print_char(x)->Print_char(x)
   | HpAlloc.IfEq(x, y, e1, e2) -> IfEq(x, y, g env constenv known e1, g env constenv known e2)
   | HpAlloc.IfLE(x, y, e1, e2) -> IfLE(x, y, g env constenv known e1, g env constenv known e2)
   | HpAlloc.Let((x, t),e1, e2) ->
      let e1'=g env constenv known e1 in
      (match eval constenv e1' with
       |Some const ->let e2'=g (M.add x t env) (M.add x (const,t) constenv) known e2 in
-                    if(S.mem x (fv e2')) then
+       Let((x,t),e1',e2')(*x定数でもe1'は副作用ある可能性がある*)
+                    (*if(S.mem x (fv e2')) then
                       Let((x,t),const,e2')
                     else
-                      e2'(*xの定義不要*)
+                      e2'(*xの定義不要*)*)
       |None ->Let((x,t),e1',g (M.add x t env) constenv known e2))
   | HpAlloc.Var(x) -> Var(x)
   | HpAlloc.LetRec({ HpAlloc.name = (x, t); HpAlloc.args = yts; HpAlloc.body = e1 }, e2) -> (* 関数定義の場合 (caml2html: closure_letrec) *)
@@ -291,24 +301,7 @@ and g env constenv known = function (* クロージャ変換ルーチン本体 (caml2html: cl
   | HpAlloc.Put(x, y, z) -> Put(x, y, z)
   | HpAlloc.ExtArray(x) -> ExtArray(Id.L(x))
   | HpAlloc.ConstArray(l)->ConstArray(l)
-  | HpAlloc.ExtFunApp(x, ys) ->if(x=Id.string_to_id "int_of_float") then
-                                 (assert (List.length ys = 1);
-                                  let arg1=List.hd ys in
-                                  Ftoi arg1)
-                               else if(x=Id.string_to_id "float_of_int") then
-                                 (assert (List.length ys =1);
-                                  let arg1=List.hd ys in
-                                  Itof arg1)
-                               else if (x=Id.string_to_id "fabs") then
-                                 (assert (List.length ys =1);
-                                  let arg1=List.hd ys in
-                                  FAbs arg1)
-                               else if (x=Id.string_to_id "sqrt") then
-                                 (assert (List.length ys =1);
-                                  let arg1=List.hd ys in
-                                  FSqrt arg1)
-                                else
-                                 AppDir(Id.L("min_caml_" ^ x), ys)
+  | HpAlloc.ExtFunApp(x, ys) ->  AppDir(Id.L("min_caml_" ^ x), ys)
 
 
                                        

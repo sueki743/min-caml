@@ -37,6 +37,16 @@ let getpos () =
 %token REC
 %token COMMA
 %token ARRAY_CREATE
+
+%token READ_INT
+%token READ_FLOAT
+%token PRINT_CHAR
+%token FTOI
+%token ITOF
+%token FSQRT
+%token FABS
+%token FNEG
+
 %token DOT
 %token LESS_MINUS
 %token SEMICOLON
@@ -146,6 +156,33 @@ exp: /* (* ∞Ï»Ã§Œº∞ (caml2html: parser_exp) *) */
 | ARRAY_CREATE simple_exp simple_exp
     %prec prec_app
     { Array($2, $3) }
+| READ_INT simple_exp
+    %prec prec_app
+    { Read_int($2) }
+| READ_FLOAT simple_exp
+    %prec prec_app
+    { Read_float($2) }
+| PRINT_CHAR simple_exp
+    %prec prec_app
+    { Print_char($2) }
+| FTOI simple_exp
+   %prec prec_app
+    { Ftoi($2) }
+| ITOF simple_exp
+   %prec prec_app
+    { Itof($2) }
+| FABS simple_exp
+   %prec prec_app
+    { FAbs($2) }
+| FSQRT simple_exp
+   %prec prec_app
+    { FSqrt($2) }
+| FNEG simple_exp
+   %prec prec_app
+    { FNeg($2) }
+
+
+
 | error
     { failwith
      (let line_pos=(Parsing.symbol_start_pos ()).Lexing.pos_bol in
