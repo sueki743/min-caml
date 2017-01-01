@@ -46,6 +46,25 @@ let rec shuffle sw xys =
 					 xys)
   | xys, acyc -> acyc @ shuffle sw xys
 
+let stats = ref M.empty
+let add_stat name i =
+  let stat =
+    (try M.find name !stats
+     with Not_found -> MInt.empty) in
+  let stat' =
+    let count =
+      (try MInt.find i stat with Not_found -> 0) in
+    MInt.add i (count+1) stat in
+  stats := M.add name stat' !stats
+let print_stat () =
+  Format.eprintf "---------- statistics of immediate ----------@.";
+  M.iter (fun name stat ->
+    Printf.eprintf "%s\n" name;
+    MInt.iter (fun i count ->
+      Printf.eprintf "\t%d\t%d\n" i count
+    ) stat
+  ) !stats
+
 type dest = Tail | NonTail of Id.t (* 末尾かどうかを表すデータ型 (caml2html: emit_dest) *)
 let rec g oc = function (* 命令列のアセンブリ生成 (caml2html: emit_g) *)
   | dest, Ans(exp) -> g' oc (dest, exp)
@@ -58,11 +77,13 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
   | NonTail(x), Add(y, z') ->
      (match z' with
      |V(v)->Printf.fprintf oc "\tadd\t%s, %s, %s\n" x y v;
-     |C(c)->Printf.fprintf oc "\taddi\t%s, %s, %d\n" x y c;)
+     |C(c)->add_stat "Add" c;
+            Printf.fprintf oc "\taddi\t%s, %s, %d\n" x y c;)
   | NonTail(x), Sub(y, z') ->
      (match z' with
       |V(v)->Printf.fprintf oc "\tsub\t%s, %s, %s\n" x y v;
-      |C(c)->Printf.fprintf oc "\taddi\t%s, %s, -%d\n" x y c;)
+      |C(c)->add_stat "Sub" c;
+             Printf.fprintf oc "\taddi\t%s, %s, -%d\n" x y c;)
   | NonTail(x), Mul(y,z) -> Printf.fprintf oc "\tmul\t%s, %s, %s\n" x y z
   | NonTail(x), Div(y,z) -> Printf.fprintf oc "\tdiv\t%s, %s, %s\n" x y z
   | NonTail(x), Or(y, z) -> Printf.fprintf oc "\tor\t%s, %s, %s\n" x y z
@@ -125,19 +146,22 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
   | Tail, IfEq(x, y', e1, e2) ->
      (match y' with
       |V y ->int_tail_if oc x y e1 e2 "be" "bne"(*bneでe2へ分岐,beでe1へ*)
-      |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw reg_zero i;
+      |C i ->add_stat "IfEq" i;
+             Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw reg_zero i;
              int_tail_if oc x reg_sw e1 e2 "beq" "bne" )
   | Tail, IfLE(x, y', e1, e2) ->
      (match y' with
       |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond x y;
              int_tail_if oc reg_cond reg_zero e1 e2 "bne" "beq"
-      |C i ->Printf.fprintf oc "\tslti\t%s, %s, %d\n" reg_cond x i;
+      |C i ->add_stat "IfLE" i;
+             Printf.fprintf oc "\tslti\t%s, %s, %d\n" reg_cond x i;
              int_tail_if oc reg_cond reg_zero e1 e2 "bne" "beq")
   | Tail, IfGE(x, y', e1, e2) ->
      (match y' with
       |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond y x;
              int_tail_if oc reg_cond reg_zero e1 e2 "bne" "beq"
-      |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw reg_zero i;
+      |C i ->add_stat "IfGE" i;
+             Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw reg_zero i;
              Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond reg_sw x;
              int_tail_if oc reg_cond reg_zero e1 e2 "bne" "beq")
   | Tail, IfFEq(x, y, e1, e2) ->
@@ -149,19 +173,22 @@ and g' oc = function (* 各命令のアセンブリ生成 (caml2html: emit_gprim
   | NonTail(z), IfEq(x, y', e1, e2) ->
      (match y' with
       |V y ->int_nontail_if oc (NonTail(z)) x y e1 e2 "be" "bne"(*bneでe2へ分岐,beでe1へ*)
-      |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw reg_zero i;
+      |C i ->add_stat "IfEq" i;
+             Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw reg_zero i;
              int_nontail_if oc (NonTail(z)) x reg_sw e1 e2 "beq" "bne" )
   | NonTail(z), IfLE(x, y', e1, e2) ->
       (match y' with
        |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond x y;
               int_nontail_if oc (NonTail(z)) reg_cond reg_zero e1 e2 "bne" "beq"(*bneでe1へ分岐,beqでe2へ*)
-       |C i ->Printf.fprintf oc "\tslti\t%s, %s, %d\n" reg_cond x i;
+       |C i ->add_stat "IfLE" i;
+              Printf.fprintf oc "\tslti\t%s, %s, %d\n" reg_cond x i;
               int_nontail_if oc (NonTail(z)) reg_cond reg_zero e1 e2 "bne" "beq" )
   | NonTail(z), IfGE(x, y', e1, e2) ->
      (match y' with
       |V y ->Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond y x;
              int_nontail_if oc (NonTail(z)) reg_cond reg_zero e1 e2 "bne" "beq"
-      |C i ->Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw reg_zero i;
+      |C i ->add_stat "IfGE" i;
+             Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sw reg_zero i;
              Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_cond reg_sw x;
              int_nontail_if oc (NonTail(z)) reg_cond reg_zero e1 e2 "bne" "beq")
   | NonTail(z), IfFEq(x, y, e1, e2) ->
@@ -321,4 +348,5 @@ let f oc (Prog(data, fundefs, e)) =
   g oc (NonTail(regs.(0)), e);
   Printf.fprintf oc "\tin\t%%r1\n";
   Printf.fprintf oc "\tj\tmin_caml_start\n";
-  List.iter (fun fundef -> h oc fundef) fundefs
+  List.iter (fun fundef -> h oc fundef) fundefs;
+  print_stat ()
