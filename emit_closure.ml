@@ -66,6 +66,10 @@ let rec g oc tree depth =
                            print_id oc id1 (depth+1);
                            g oc t2 (depth+1);
                            g oc t3 (depth);
+  |Let_Ref((x,t),e1,e2) ->fprintf oc "Let_Ref\n";
+                          print_id oc x (depth+1);
+                          g oc e1 (depth+1);
+                          g oc e2 (depth)
   |Var v ->fprintf oc "((";Id.print_id oc v;fprintf oc "))\n"
   |MakeCls ((id1,ty1),cl,tree) ->fprintf oc "MakeCls\n";
                                  print_id oc id1 (depth+1);
@@ -108,6 +112,15 @@ let rec g oc tree depth =
   |ExtArray t ->fprintf oc "ExtArray\n";
                 fprintf oc "%*s" (depth+1) "";
                 Id.print_l oc t;fprintf oc "\n"
+  |ForLE(((i,a),(j,k),step),e)->
+    fprintf oc "ForLE{%s=%s|%s<=%s|\n" i a j k;
+    g oc step (depth+7);
+    fprintf oc "|\n";
+    g oc e (depth + 1);
+    fprintf oc "%*s" depth "";fprintf oc "endforLE\n"
+  |Ref_Get(t) ->fprintf oc "Ref_Get(%s)\n" t
+  |Ref_Put(t1,t2) ->fprintf oc "Ref_Put(%s<-%s)\n" t1 t2
+                                        
 
 
 let print_fundef oc fundef =

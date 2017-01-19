@@ -10,9 +10,19 @@ let rec f = function (* ネストしたletの簡約 (caml2html: assoc_f) *)
 	| Let(yt, e3, e4) -> Let(yt, e3, insert e4)
 	| LetRec(fundefs, e) -> LetRec(fundefs, insert e)
 	| LetTuple(yts, z, e) -> LetTuple(yts, z, insert e)
+        | Let_Ref(yt,e3,e4) ->Let_Ref(yt,e3,insert e4)
 	| e -> Let(xt, e, f e2) in
       insert (f e1)
   | LetRec({ name = xt; args = yts; body = e1 }, e2) ->
       LetRec({ name = xt; args = yts; body = f e1 }, f e2)
   | LetTuple(xts, y, e) -> LetTuple(xts, y, f e)
+  | Let_Ref(xt, e1, e2) ->
+      let rec insert = function
+	| Let(yt, e3, e4) -> Let(yt, e3, insert e4)
+	| LetRec(fundefs, e) -> LetRec(fundefs, insert e)
+	| LetTuple(yts, z, e) -> LetTuple(yts, z, insert e)
+        | Let_Ref(yt,e3,e4) ->Let_Ref(yt,e3,insert e4)
+	| e -> Let_Ref(xt, e, f e2) in
+      insert (f e1)
+  |ForLE(cs,e) ->ForLE(cs,f e)
   | e -> e

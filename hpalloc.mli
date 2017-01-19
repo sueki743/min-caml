@@ -35,6 +35,11 @@ type t =
   |Read_int of Id.t(*引数はunit型*)
   |Read_float of Id.t(*引数はunit型*)
   |Print_char of Id.t
+  |ForLE of ((Id.t* Id.t) * (Id.t * Id.t) * t) *t
+  |Let_Ref of (Id.t * Type.t) *t *t
+  |Ref_Get of Id.t
+  |Ref_Put of Id.t * Id.t
+
 
  and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 

@@ -1,8 +1,9 @@
 open KNormal
 
-let find x env = try M.find x env with Not_found -> x (* ÃÖ´¹¤Î¤¿¤á¤Î´Ø¿ô (caml2html: beta_find) *)
 
-let rec g env = function (* ¦Â´ÊÌó¥ë¡¼¥Á¥óËÜÂÎ (caml2html: beta_g) *)
+let find x env = try M.find x env with Not_found -> x (* ç½®æ›ã®ãŸã‚ã®é–¢æ•° (caml2html: beta_find) *)
+
+let rec g env const_var = function
   | Unit -> Unit
   | Int(i) -> Int(i)
   | Float(d) -> Float(d)
@@ -25,31 +26,39 @@ let rec g env = function (* ¦Â´ÊÌó¥ë¡¼¥Á¥óËÜÂÎ (caml2html: beta_g) *)
   | Read_float(x) ->Read_float(find x env)
   | Print_char(x) ->Print_char(find x env)
                       
-  | IfEq(x, y, e1, e2) -> IfEq(find x env, find y env, g env e1, g env e2)
-  | IfLE(x, y, e1, e2) -> IfLE(find x env, find y env, g env e1, g env e2)
-  | Let((x, t), e1, e2) -> (* let¤Î¦Â´ÊÌó (caml2html: beta_let) *)
-      (match g env e1 with
-      | Var(y) ->
-	 (*Format.eprintf "beta-reducing %s = %s@." x y;*)
-	  g (M.add x y env) e2
-      | e1' ->
-	  let e2' = g env e2 in
-	  Let((x, t), e1', e2'))
+  | IfEq(x, y, e1, e2) ->
+     IfEq(find x env, find y env, g env const_var e1, g env const_var e2)
+  | IfLE(x, y, e1, e2) ->
+     IfLE(find x env, find y env, g env const_var e1, g env const_var e2)
+  | Let((x,t),(Int(_) as const),e2)
+    |Let((x,t),(Float(_) as const),e2)->
+     if List.mem_assoc const const_var then
+       let x'=List.assoc const const_var in
+       g (M.add x x' env) const_var e2
+     else
+       Let((x,t),const,g env ((const,x)::const_var) e2)
+     
+  | Let((x, t), e1, e2) -> 
+	  Let((x, t), g env const_var e1, g env const_var e2)
   | LetRec({ name = xt; args = yts; body = e1 }, e2) ->
-      LetRec({ name = xt; args = yts; body = g env e1 }, g env e2)
-  | Var(x) -> Var(find x env) (* ÊÑ¿ô¤òÃÖ´¹ (caml2html: beta_var) *)
+     LetRec({ name = xt; args = yts; body = g M.empty [] e1 },
+            (*è‡ªç”±å¤‰æ•°ã‚ã£ãŸã‚‰å•é¡Œ*)
+            g env const_var e2)
+  | Var(x) -> Var(find x env)
   | Tuple(xs) -> Tuple(List.map (fun x -> find x env) xs)
-  | LetTuple(xts, y, e) -> LetTuple(xts, find y env, g env e)
+  | LetTuple(xts, y, e) -> LetTuple(xts, find y env, g env const_var e)
   | Get(x, y) -> Get(find x env, find y env)
   | Put(x, y, z) -> Put(find x env, find y env, find z env)
   | App(g, xs) -> App(find g env, List.map (fun x -> find x env) xs)
   | ExtArray(x) -> ExtArray(x)
   | ExtFunApp(x, ys) -> ExtFunApp(x, List.map (fun y -> find y env) ys)
-  | Let_Ref((x,t),e1,e2) ->Let_Ref((x,t),g env e1,g env e2)
+  | Let_Ref((x,t),e1,e2) ->
+     Let_Ref((x,t),g env const_var e1,g env const_var e2)
   | Ref_Get(x) ->Ref_Get(find x env)
   | Ref_Put(x,y) ->Ref_Put(find x env,find y env)
   | ForLE(((i,a),(j,k),step),e) ->
-     ForLE(((find i env,find a env),(find j env,find k env),g env step),g env e)
+     ForLE(((find i env,find a env),(find j env,find k env),g env const_var step),
+           g env const_var e)
           
 
-let f = g M.empty
+  let f e = g M.empty [] e

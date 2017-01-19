@@ -35,6 +35,12 @@ type t = (* クロージャ変換後の式 (caml2html: closure_t) *)
   |Read_float of Id.t(*引数はunit型*)
   |Print_char of Id.t
 
+  |ForLE of ((Id.t* Id.t) * (Id.t * Id.t) * t) *t
+  |Let_Ref of (Id.t * Type.t) *t *t
+  |Ref_Get of Id.t
+  |Ref_Put of Id.t * Id.t
+
+
 
 type fundef = { name : Id.l * Type.t;
 		args : (Id.t * Type.t) list;
@@ -48,10 +54,11 @@ let toplevel : fundef list ref = ref []
                                       
 let rec fv = function
   | Unit | Int(_) | Float(_) | ExtArray(_)|ConstArray(_)|ConstTuple(_) -> S.empty
-  | Neg(x) | FNeg(x) -> S.singleton x
-  | Add(x, y) | Sub(x, y)| Mul(x,y)| Div(x,y) | FAdd(x, y) | FSub(x, y) | FMul(x, y) | FDiv(x, y) | Get(x, y) -> S.of_list [x; y]
+  | Neg(x) | FNeg(x)|Ref_Get(x) -> S.singleton x
+  | Add(x, y) | Sub(x, y)| Mul(x,y)| Div(x,y) | FAdd(x, y) | FSub(x, y) | FMul(x, y) | FDiv(x, y) | Get(x, y)|Ref_Put(x,y) -> S.of_list [x; y]
   | IfEq(x, y, e1, e2)| IfLE(x, y, e1, e2) -> S.add x (S.add y (S.union (fv e1) (fv e2)))
   | Let((x, t), e1, e2) -> S.union (fv e1) (S.remove x (fv e2))
+  | Let_Ref((x,t),e1,e2)-> S.union (fv e1) (S.remove x (fv e2))
   | Var(x) -> S.singleton x
   | MakeCls((x, t), { entry = l; actual_fv = ys }, e) -> S.remove x (S.union (S.of_list ys) (fv e))
   | AppCls(x, ys) -> S.of_list (x :: ys)
@@ -60,7 +67,10 @@ let rec fv = function
   | Put(x, y, z) -> S.of_list [x; y; z]
   | Ftoi (x) | Itof (x)|Read_int(x)|Read_float(x)|Print_char(x) ->S.singleton x
   | FAbs (x) |FSqrt (x) ->S.of_list [x]
-                                    
+  | ForLE(((i,a),(j,k),step),e1)->
+     S.union (S.of_list [j;k]) (S.union (fv step) (fv e1))
+     
+                                      
                                     
 
 let const_fv constenv e =
@@ -84,6 +94,21 @@ let rec insert_const constenv = function
        Let((y,t),const,(LetTuple(xts,y,e')))
      with
        Not_found ->LetTuple(xts,y,insert_const constenv e))
+  |Let_Ref(xt,e1,e2) ->
+    let const_set = const_fv constenv e1 in
+    (*constenvからconst_set中の変数を削除*)
+    let constenv' = M.filter (fun x ->(fun ct->not (S.mem x const_set))) constenv in
+    S.fold (fun x exp ->let (const,t)=M.find x constenv in
+                        Let((x,t),const,exp))
+           const_set
+           (Let_Ref(xt,e1,(insert_const constenv' e2)))
+  |ForLE(cs,e1) as e ->
+    let const_set = const_fv constenv e in
+        S.fold (fun x exp ->let (const,t)=M.find x constenv in
+                        Let((x,t),const,exp))
+             const_set
+             (ForLE(cs,e1))
+    
   |e ->
     let const_set = const_fv constenv e in
     S.fold (fun x exp ->let (const,t)=M.find x constenv in
@@ -202,6 +227,7 @@ let rec eval constenv = function(*定数なら値を評価*)
     let v1=(match M.find x constenv with
             |(Float(d),_)->d|_->assert false) in
     Some (Float(sqrt(v1)))
+  |Let_Ref((x,t),_,e2) ->eval constenv e2
   |_ ->None
 
 and g env constenv known = function (* クロージャ変換ルーチン本体 (caml2html: closure_g) *)
@@ -234,7 +260,7 @@ and g env constenv known = function (* クロージャ変換ルーチン本体 (caml2html: cl
      let e1'=g env constenv known e1 in
      (match eval constenv e1' with
       |Some const ->let e2'=g (M.add x t env) (M.add x (const,t) constenv) known e2 in
-       Let((x,t),e1',e2')(*x定数でもe1'は副作用ある可能性がある*)
+                    Let((x,t),e1',e2')(*x定数でもe1'は副作用ある可能性がある*)
                     (*if(S.mem x (fv e2')) then
                       Let((x,t),const,e2')
                     else
@@ -268,12 +294,12 @@ and g env constenv known = function (* クロージャ変換ルーチン本体 (caml2html: cl
       toplevel := { name = (Id.L(x), t); args = yts; formal_fv = zts; body = e1' } :: !toplevel; (* トップレベル関数を追加 *)
       let e2' = g env' constenv known' e2 in
       if S.mem x (fv e2') then (* xが変数としてe2'に出現するか *)
-	MakeCls((x, t), { entry = Id.L(x); actual_fv = zs }, e2') (* 出現していたら削除しない *)
+	MakeCls((x, t), { entry = Id.L(x); actual_fv = zs }, e2')
       else
-	(Format.eprintf "eliminating closure(s) %s@." x;
-	 e2') (* 出現しなければMakeClsを削除 *)
+	(*Format.eprintf "eliminating closure(s) %s@." x;*)
+	 e2' (* 出現しなければMakeClsを削除 *)
   | HpAlloc.App(x, ys) when S.mem x known -> (* 関数適用の場合 (caml2html: closure_app) *)
-      Format.eprintf "directly applying %s@." x;
+     (*Format.eprintf "directly applying %s@." x;*)
       AppDir(Id.L(x), ys)
   | HpAlloc.App(f, xs) -> AppCls(f, xs)
   | HpAlloc.Tuple(xs) -> Tuple(xs)
@@ -302,6 +328,12 @@ and g env constenv known = function (* クロージャ変換ルーチン本体 (caml2html: cl
   | HpAlloc.ExtArray(x) -> ExtArray(Id.L(x))
   | HpAlloc.ConstArray(l)->ConstArray(l)
   | HpAlloc.ExtFunApp(x, ys) ->  AppDir(Id.L("min_caml_" ^ x), ys)
+  | HpAlloc.ForLE((a,b,step),e) ->ForLE((a,b,g env constenv known step),g env constenv known e)
+  | HpAlloc.Let_Ref((x,t),e1,e2) ->
+     Let_Ref((x,t),g env constenv known e1,g (M.add x t env) constenv known e2)
+  | HpAlloc.Ref_Get(x) ->Ref_Get(x)
+  | HpAlloc.Ref_Put(x,y)->Ref_Put(x,y)
+     
 
 
                                        

@@ -17,6 +17,8 @@ let  log2_int n =
                
 let rec multosll env  = function (* mul,div to sll,slr *)
   | Ans(exp) -> multosll' env exp
+  | Let((x, Type.Ref t) as xt,exp,e) ->(*xがref型の時は定数でも登録しない*)
+     concat (multosll' env exp) xt (multosll env e)
   | Let((x, t), Add(zero,C(i)), e) when (is_pow2 i) && (zero=reg_zero) ->
      (*Printf.printf "found! %s=%d\n" x i;*)
      let e' = multosll (M.add x i env) e in
@@ -39,10 +41,11 @@ and multosll' env = function
                                      Ans(Sub(reg_zero,V(reg_sw))))(*-reg_sw*)
   |Div(x,y) when M.mem y env ->let i = M.find y env in
                                if(i=2)then
-                                 let s=Id.genid "s" in
+                                 (*let s=Id.genid "s" in
                                  Let((s,Type.Int),SRA(x,31),
                                      Let((reg_sw,Type.Int),Add(x,V(s)),
-                                         Ans(SRL(reg_sw,1))))
+                                         Ans(SRL(reg_sw,1))))*)
+                                 Ans(SRL(x,1))
                                else
                                  Ans(Div(x,y))(*mirtだとi=2のみ*)
   | IfEq(x, y', e1, e2) -> Ans(IfEq(x, y', multosll env e1, multosll env e2))
@@ -50,6 +53,7 @@ and multosll' env = function
   | IfGE(x, y', e1, e2) -> Ans(IfGE(x, y', multosll env e1, multosll env e2))
   | IfFEq(x, y, e1, e2) -> Ans(IfFEq(x, y, multosll env e1, multosll env e2))
   | IfFLE(x, y, e1, e2) -> Ans(IfFLE(x, y, multosll env e1, multosll env e2))
+  | ForLE(cs,e) ->Ans(ForLE(cs,multosll env e))
   |e ->Ans(e)
                                
 let h { name = l; args = xs; fargs = ys; body = e; ret = t } = 

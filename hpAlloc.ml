@@ -1,4 +1,4 @@
-open KNormal
+
 
 type t = 
   | Unit
@@ -35,6 +35,11 @@ type t =
   |Read_int of Id.t(*引数はunit型*)
   |Read_float of Id.t(*引数はunit型*)
   |Print_char of Id.t
+                   
+  |ForLE of ((Id.t* Id.t) * (Id.t * Id.t) * t) *t
+  |Let_Ref of (Id.t * Type.t) *t *t
+  |Ref_Get of Id.t
+  |Ref_Put of Id.t * Id.t
 
  and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 
@@ -154,6 +159,7 @@ let rec eval constenv = function(*定数なら値を評価*)
        |_ ->assert false)
     with
       Not_found->eval constenv e)
+  |Let_Ref(_,e1,e2) ->eval constenv e2
   |Get _|Put _ |ExtArray _|ExtFunApp _->None
   |_ ->None
 
@@ -193,6 +199,10 @@ let rec g_unchange =function(*knormal.t->hpAlloc.t、そのまま変換*)
   | KNormal.Put(x, y, z) -> Put(x, y, z)
   | KNormal.ExtArray(x) -> ExtArray(x)
   | KNormal.ExtFunApp(x, ys) ->ExtFunApp(x,ys)
+  | KNormal.ForLE((a,b,step),e) ->ForLE((a,b,g_unchange step),g_unchange e)
+  | KNormal.Let_Ref(xt,e1,e2) ->Let_Ref(xt,g_unchange e1,g_unchange e2)
+  | KNormal.Ref_Get(x) ->Ref_Get(x)
+  | KNormal.Ref_Put(x,y) ->Ref_Put(x,y)
 
 let not_changed_array =ref []
 
@@ -293,6 +303,10 @@ let rec g constenv = function
       with Not_found ->(*size,initvが定数でなかった場合*)
            ExtFunApp(l, [arg1;arg2]))
   | KNormal.ExtFunApp(x, ys) ->ExtFunApp(x,ys)
+  | KNormal.ForLE((a,b,step),e) ->ForLE((a,b,g_unchange step),g_unchange e)
+  | KNormal.Let_Ref(xt,e1,e2) ->Let_Ref(xt,g constenv e1,g constenv e2)
+  | KNormal.Ref_Get(x) ->Ref_Get(x)
+  | KNormal.Ref_Put(x,y) ->Ref_Put(x,y)
 
 
 

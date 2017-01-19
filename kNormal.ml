@@ -34,16 +34,26 @@ type t = (* K正規化後の式 (caml2html: knormal_t) *)
   |Read_int of Id.t(*引数はunit型*)
   |Read_float of Id.t(*引数はunit型*)
   |Print_char of Id.t
+ (*以下を追加*)
+  |ForLE of ((Id.t* Id.t) * (Id.t * Id.t) * t) *t
+  (*ForLE(((i,a),(i,j),Add(i,d)),body) 
+                        =for(int i=a;i<=j;i+=d) body*)
+  |Let_Ref of (Id.t * Type.t) *t *t(*再代入可能変数,1要素配列のように扱うが
+                                    配列と違いレジスタに割り当てる*)
+  |Ref_Get of Id.t
+  |Ref_Put of Id.t * Id.t
+                   
                    
 and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 
 let rec fv = function (* 式に出現する（自由な）変数 (caml2html: knormal_fv) *)
   | Unit | Int(_) | Float(_) | ExtArray(_) -> S.empty
   | Neg(x) | FNeg(x)|Ftoi(x)|Itof(x)|FAbs(x)|FSqrt(x)|Print_char(x)
-    |Read_int(x)|Read_float(x)-> S.singleton x
-  | Add(x, y) | Sub(x, y) |Mul(x,y)|Div(x,y)| FAdd(x, y) | FSub(x, y) | FMul(x, y) | FDiv(x, y) | Get(x, y) -> S.of_list [x; y]
+    |Read_int(x)|Read_float(x)|Ref_Get(x)-> S.singleton x
+  | Add(x, y) | Sub(x, y) |Mul(x,y)|Div(x,y)| FAdd(x, y) | FSub(x, y) | FMul(x, y) | FDiv(x, y) | Get(x, y)|Ref_Put(x,y) -> S.of_list [x; y]
   | IfEq(x, y, e1, e2) | IfLE(x, y, e1, e2) -> S.add x (S.add y (S.union (fv e1) (fv e2)))
   | Let((x, t), e1, e2) -> S.union (fv e1) (S.remove x (fv e2))
+  | Let_Ref((x,t),e1,e2) ->S.union (fv e1) (S.remove x (fv e2))
   | Var(x) -> S.singleton x
   | LetRec({ name = (x, t); args = yts; body = e1 }, e2) ->
       let zs = S.diff (fv e1) (S.of_list (List.map fst yts)) in
@@ -52,6 +62,9 @@ let rec fv = function (* 式に出現する（自由な）変数 (caml2html: knormal_fv) *)
   | Tuple(xs) | ExtFunApp(_, xs) -> S.of_list xs
   | Put(x, y, z) -> S.of_list [x; y; z]
   | LetTuple(xs, y, e) -> S.add y (S.diff (fv e) (S.of_list (List.map fst xs)))
+  | ForLE(((i,a),(j,k),step),e1)->
+     (S.union (S.of_list [j;k]) (S.union (fv step) (fv e1)))
+                                
 
 let insert_let (e, t) k = (* letを挿入する補助関数 (caml2html: knormal_insert) *)
   match e with

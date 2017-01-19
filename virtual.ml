@@ -139,11 +139,17 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
         let e1' = g env constenv e1 in
         let e2' = g (M.add x t1 env) constenv e2 in(*xの型を登録すればコード作れる*)
         concat e1' (x, t1) e2')
+  | Closure.Let_Ref((x,t),e1,e2) ->
+     (match t with Type.Ref _ ->
+                   let e1' = g env constenv e1 in
+                   let e2' = g (M.add x t env) constenv e2 in
+                   concat e1' (x,t) e2'
+                 |_ ->assert false)
   | Closure.Var(x) ->
      (match M.find x env with
       | Type.Unit -> Ans(Nop)
       | Type.Float -> Ans(FMov(x))
-      | _ -> Ans(Add(reg_zero,V (x))))
+      | _ -> Ans(Add(x,C(0))))
   | Closure.MakeCls((x, t), { Closure.entry = l; Closure.actual_fv = ys }, e2) -> (* クロージャの生成 (caml2html: virtual_makecls) *)
       (* Closureのアドレスをセットしてから、自由変数の値をストア *)
       let e2' = g (M.add x t env) constenv e2 in
@@ -237,6 +243,22 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
       | _ -> assert false)
   | Closure.ConstArray(l) -> Ans(La(l))
   | Closure.ExtArray(Id.L(x)) -> Ans(La(Id.L("min_caml_" ^ x)))
+  | Closure.ForLE(((i,a),(j,k),step),e) ->
+     let tmp = Id.genid "unit" in
+     Ans(ForLE(((i,V(a)),(V(j),V(k)),
+                concat (g env constenv step) (tmp,Type.Int) (Ans(Ref_Put(i,tmp))))
+               ,g env constenv e))
+  | Closure.Ref_Get(x) ->
+     (match M.find x env with
+      |Type.Ref(Type.Float) ->Ans(Ref_FGet(x))
+      |Type.Ref(Type.Ref _) ->assert false
+      |Type.Ref(_) ->Ans(Ref_Get(x))
+      |_ ->assert false)
+  | Closure.Ref_Put(x,y) ->
+     (match M.find y env with
+      |Type.Float ->Ans(Ref_FPut(x,y))
+      |Type.Ref _ ->assert false
+      |_ ->Ans(Ref_Put(x,y)))
 
 (* 関数の仮想マシンコード生成 (caml2html: virtual_h) *)
 let h { Closure.name = (Id.L(x), t); Closure.args = yts; Closure.formal_fv = zts; Closure.body = e } =

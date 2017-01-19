@@ -43,6 +43,12 @@ type t = (* 命令の列 (caml2html: sparcasm_t) *)
   | CallDir of Id.l * Id.t list * Id.t list
   | Save of Id.t * Id.t (* レジスタ変数の値をスタック変数へ保存 (caml2html: sparcasm_save) *)
   | Restore of Id.t (* スタック変数から値を復元 (caml2html: sparcasm_restore) *)
+  |ForLE of ((Id.t* id_or_imm) * (id_or_imm * id_or_imm) * t) *t
+  |Ref_Get of Id.t
+  |Ref_Put of Id.t * Id.t
+  |Ref_FGet of Id.t
+  |Ref_FPut of Id.t * Id.t
+                 
                  
 type fundef = { name : Id.l; args : Id.t list; fargs : Id.t list; body : t; ret : Type.t }
 (* プログラム全体 = 浮動小数点数テーブル + トップレベル関数 + メインの式 (caml2html: sparcasm_prog) *)
@@ -62,11 +68,13 @@ val reg_fsw : Id.t
 val reg_ra : Id.t
 val reg_hp : Id.t
 val reg_sp : Id.t
-val reg_cond : Id.t
 val is_reg : Id.t -> bool
 (*val co_freg : Id.t -> Id.t*)
-
+val fv_exp : exp ->S.elt list
 val fv : t -> Id.t list
 val concat : t -> Id.t * Type.t -> t -> t
-
+val cons :t ->t->t
+val before_ans:exp ->t ->t
 val align : int -> int
+val remove_exp:exp ->t ->t*bool
+val remove_allexp:exp ->t->t
