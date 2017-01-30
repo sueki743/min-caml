@@ -52,7 +52,7 @@ let rec cons defs1 defs2 =
   |e ->let dummy =Id.genid "unit" in
        Let((dummy,Type.Unit),e,defs2)
        
-let serch_unchanged_arg {name = (x,t);args = yts;body=e}=(*末尾呼び出しで不変な引数*)
+let search_unchanged_arg {name = (x,t);args = yts;body=e}=(*末尾呼び出しで不変な引数*)
   let ys = List.map fst yts in
   let rec  unchanged_arg =function
     |IfEq(_,_,e1,e2)|IfLE(_,_,e1,e2) ->List.filter
@@ -306,7 +306,7 @@ let rec is_tailrec f = function
 let for_check  ({name = (x,t);args = yts;body=e} as fundef) =(*for分に変換できれば変換する*)
   try
     let ys = List.map fst yts in
-    let unchanged_args =serch_unchanged_arg fundef in(*再帰で値が変わらない引数*)
+    let unchanged_args =search_unchanged_arg fundef in(*再帰で値が変わらない引数*)
     let (unchanged_vars,unchanged_defs) = search_unchanged_var unchanged_args fundef in
     let e'= rm_def unchanged_vars e in
     (*再帰を通して値が変わらない変数と、その定義*)
