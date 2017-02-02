@@ -35,7 +35,7 @@ let f array_tree var_category trace =function
      |_ ->
                VarCatego.Unknown)
   |Add(x,y)|FAdd(x,y)->
-    if(S.mem x trace||S.mem y trace) then
+    if(M.mem x trace||M.mem y trace) then
       (
         (* Format.eprintf "tarce_add!!!!!!!!!!!!!!!!!!!!!!!!!%s+%s@." x y; *)
       VarCatego.Trace_add(x,y))

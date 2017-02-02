@@ -86,7 +86,6 @@ let add_write new_lavel (a,pos,x) pre_written {graph=g;end_l=el} =
   { graph=g'' ; end_l=new_lavel}
 
 let add_trace_add (x,(y,z)) {graph=g;end_l=el} =
-  (* Format.eprintf "addtarce_add!!!!!!!!!!!!!!!!!!!!!!!!%s+%s@." x y; *)
   let new_lavel=genlavel () in
   let g'=set_children el (Seq(new_lavel)) g in
   let g''
@@ -95,8 +94,7 @@ let add_trace_add (x,(y,z)) {graph=g;end_l=el} =
   { graph=g'' ; end_l=new_lavel}
 
 let add_trace_get (x,(a,pos)) {graph=g;end_l=el} =
-  (* Format.eprintf "addtarce_get!!!!!!!!!!!!!!!!!!!!!!!!%s@." x; *)
-  (* VarCatego.print_apos (a,pos); *)
+
   let new_lavel=genlavel () in
   let g'=set_children el (Seq(new_lavel)) g in
   let g''
@@ -225,7 +223,6 @@ let is_written pre_written env (b,posb) graph end_l=
   else
     let tf=List.map
              (fun ((a,posa),l) ->
-               VarCatego.print_apos (a,posa);
                let graph'= set_rw l Not graph in
                aW_then_bW  l ((a,posa),env) (b,posb) graph' end_l)
              pre_written
@@ -262,9 +259,11 @@ let analyze' (l,end_l) graph env=
             let localWAR'=add_list (a,pos) localWAR in
             (read,write,may_write ,localWAR',acum,trace_env)
           else if(may_mem env (a,pos) may_write) then
-            if(Format.eprintf "goto_is_written@.";
+            if(
+              (* Format.eprintf "goto_is_written@."; *)
               is_written pre_written env (a,pos) graph l)then
-              (Format.eprintf "is_written_return@.";
+              (
+                (* Format.eprintf "is_written_return@."; *)
               let localWAR'=add_list (a,pos) localWAR in
               (read,write,may_write, localWAR',acum,trace_env))
             else
@@ -330,6 +329,33 @@ let analyze' (l,end_l) graph env=
   in
 
   inner (l,end_l) ([],[],[],[],[]) M.empty
+
+let print_rw_info head aposs =
+  Format.eprintf "\n%s@." head;
+  List.iter
+    VarCatego.print_path_from_root
+    aposs
+      
+
         
-let analyze env {graph=g;end_l=el} =
-  analyze' (start_l,el) g env
+let analyze env array_tree {graph=g;end_l=el} =
+  let (read,write,may_write,localWAR,acum,trace_env)=
+    analyze' (start_l,el) g env
+  in
+  let read=
+    List.map (Array_tree.path_from_root array_tree) (unique_list read) in
+  
+  let may_write=
+    List.map (Array_tree.path_from_root array_tree) (unique_list may_write) in  
+  let localWAR=
+    List.map (Array_tree.path_from_root array_tree) (unique_list localWAR) in
+  let acum=
+    List.map (Array_tree.path_from_root array_tree) (unique_list acum) in
+  Format.eprintf "can parallelize this function!@.";
+  Format.eprintf "<<-------------------------------------------------------@.";
+  print_rw_info "//readonly//" (List.sort compare read) ;
+  print_rw_info "//write//" (List.sort compare may_write) ;
+  print_rw_info "//WAR closed in one loop//" (List.sort compare localWAR);
+  print_rw_info "//acumulate through loop//" (List.sort compare acum);
+  Format.eprintf "------------------------------------------------------->>@."
+                

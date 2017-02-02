@@ -23,7 +23,7 @@ clean:: nobackup
 SOURCES = float.c type.ml id.ml m.ml s.ml \
 syntax.ml parser.mly lexer.mll joinglb.ml typing.mli emit_syntax.ml typing.ml kNormal.mli kNormal.ml \
 emit_knormal.ml alpha.mli alpha.ml for_check.ml for_check.mli beta.mli beta.ml assoc.mli assoc.ml \
-varCatego.ml  rw_g.ml array_tree.ml categorize.ml notW_hypo.ml   mk_rw_graph.ml parallelize.ml\
+varCatego.ml  array_tree.ml rw_g.ml categorize.ml notW_hypo.ml   mk_rw_graph.ml parallelize.ml\
 inline.mli inline.ml unique_constdef.ml unique_constdef.mli constFold.mli constFold.ml elim.mli elim.ml hpAlloc.mli hpAlloc.ml\
 closure.mli closure.ml emit_closure.ml asm.mli asm.ml virtual.mli virtual.ml simm.mli simm.ml multosll.mli multosll.ml emit_asm.ml\
 regAlloc.mli regAlloc.ml emit.mli emit.ml \

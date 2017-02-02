@@ -5,32 +5,57 @@ exception Side_effect
 
 let find x var_category =
   try M.find x var_category with Not_found ->VarCatego.Unknown
-            
-let rec g rw_graph array_tree notW_hypothesis pre_written var_category trace
-  =function  (*var_category:id.t ->VarCatego.t
-   arrayを含む型の変数はElm(a,n) or Tuple(xs)で登録
-   それ以外は
-   Int(i),Index(i),Float(d),Unknownのどれか*)
+
+(*knormal.tの受け取って,自由変数を適切にrw_graphに加える*)
+let add_read trace e pre_written rw_graph=
+  let next_fv =(*直後に評価される自由変数*)
+    match e with 
+    |Let _|Let_Ref _|LetRec _ ->S.empty
+    |LetTuple(_,y,_) ->S.singleton y
+    |IfEq(x,y,_,_)|IfLE(x,y,_,_)->S.of_list [x;y]
+    |ForLE(((i,a),(j,k),step),_) ->
+      S.of_list (List.filter (fun x->x<>i) [j;k])
+    |e' ->(KNormal.fv e')
+  in
+  S.fold
+    (fun x (rw_g',trace') ->
+      try
+        let ((a,pos),was_read) = M.find x trace' in
+        if(not was_read)then
+          let l=Rw_g.genlavel ()in
+          let rw_g'=Rw_g.add_read l (a,pos) pre_written rw_g'
+          in
+          let trace'=M.add x ((a,pos),true) trace' in
+            (rw_g',trace')
+        else
+          (rw_g',trace')
+        with
+          Not_found ->(rw_g',trace'))
+    next_fv
+    (rw_graph,trace)           
+                                               
+let rec g rw_graph array_tree notW_hypothesis pre_written var_category trace e =
+  (*配列から読み込んだ値が初めて直後に評価される場合は,read情報をrw_graphに登録*)
+  let (rw_graph,trace)=add_read trace e pre_written rw_graph in
+  
+  match e with
+    
   |Get(a,n) ->
     (* Format.eprintf "get(%s)@." a; *)
     let a=Array_tree.find a array_tree in
-    let lavel=Rw_g.genlavel () in
     let category_of_n=find n var_category in
     let n_position=VarCatego.Array(category_of_n) in
-    let rw_graph=Rw_g.add_read lavel (a,n_position) pre_written rw_graph in
     let hypo=NotW_hypo.set_elm_ans (a,n_position) notW_hypothesis in
     (rw_graph , array_tree , hypo , VarCatego.Elm(a,n_position))
   |Ref_Get(a) when a= (!VarCatego.index_ref) ->(*index変数からget*)
-    Format.eprintf "ref_get(%s)@." a;
     let pos = VarCatego.Ref in
      let hypo=NotW_hypo.set_elm_ans (a,pos) notW_hypothesis in   
     (rw_graph, array_tree,hypo, VarCatego.Index(0))
   |Ref_Get(a) ->
     (* Format.eprintf "ref_get(%s)@." a; *)
+     
     let a=Array_tree.find a array_tree in
-    let lavel=Rw_g.genlavel () in
     let position=VarCatego.Ref in
-    let rw_graph=Rw_g.add_read lavel (a,position) pre_written rw_graph in
     let hypo=NotW_hypo.set_elm_ans (a,position) notW_hypothesis in
     (rw_graph, array_tree, hypo, VarCatego.Elm(a,position))
   |Put(a,n, x) ->
@@ -74,16 +99,16 @@ let rec g rw_graph array_tree notW_hypothesis pre_written var_category trace
 
     (match ans1 with
      |VarCatego.Elm(a,pos) ->(*xがarrayincludeならarray_treeに追加*)
+       let trace'=M.add x ((a,pos),false) trace in
        if Type.include_array_ref t then
          (let array_t' = Array_tree.add_childe x (a,pos) array_t1 in
           (* Format.eprintf "add_array_tree:%s,num=%d,env_num=%d@." x (Array_tree.num array_t') (Array_tree.env_num array_t'); *)
-         g rw_g1 array_t' hypo' pre_written var_category trace e2)
+         g rw_g1 array_t' hypo' pre_written var_category trace' e2)
        else if (t=Type.Int||t=Type.Float)&&(a<> !(VarCatego.index_ref)) then(*xをtrace*)
-         let trace' =S.add x trace in
          let rw_g'=Rw_g.add_trace_get (x,(a,pos)) rw_g1 in
          g rw_g' array_t1 hypo' pre_written var_category trace' e2
        else
-         g rw_g1 array_t1 hypo' pre_written var_category trace e2
+         g rw_g1 array_t1 hypo' pre_written var_category trace' e2
      |VarCatego.Parent(aps) ->
        let array_t'=Array_tree.add_parent x aps array_t1 in
        g rw_g1 array_t' hypo' pre_written var_category trace e2
@@ -104,14 +129,16 @@ let rec g rw_graph array_tree notW_hypothesis pre_written var_category trace
     let hypo=NotW_hypo.set_env_after_return var_category notW_hypothesis hypo1 in
     (match ans1 with
      |VarCatego.Elm(a,pos) ->
+       let l=Rw_g.genlavel () in
+       let rw_g1'=Rw_g.add_read  l (a,pos) pre_written rw_g1 in
        if Type.include_array_ref t then
          let dummy=Id.genid "dummy" in(*a,posに位置する値を表すダミー*)
          let array_t'=Array_tree.add_childe dummy (a,pos) array_t1 in
          let array_t'=Array_tree.add_parent x [(VarCatego.Ref,dummy)] array_t' in
-         g rw_g1 array_t' hypo  pre_written var_category trace e2
+         g rw_g1' array_t' hypo  pre_written var_category trace e2
        else
          let array_t'=Array_tree.set_root [x] array_t1 in
-         g rw_g1 array_t' hypo  pre_written var_category trace e2
+         g rw_g1' array_t' hypo  pre_written var_category trace e2
      |VarCatego.Parent(aps) ->
        let dummy=Id.genid "dummy" in
        let array_t'=Array_tree.add_parent dummy aps array_t1 in
@@ -325,9 +352,9 @@ let rec g rw_graph array_tree notW_hypothesis pre_written var_category trace
 let f global_regions constenv e=
   let array_tree=Array_tree.set_root global_regions (Array_tree.empty) in
   let var_category=
-    M.map (fun const ->Categorize.f array_tree M.empty S.empty const) constenv
+    M.map (fun const ->Categorize.f array_tree M.empty M.empty const) constenv
   in
   let (rw_graph,array_tree,_,_)=
-   g Rw_g.empty array_tree NotW_hypo.empty [] var_category S.empty e in
+   g Rw_g.empty array_tree NotW_hypo.empty [] var_category M.empty e in
   (rw_graph,array_tree)
 

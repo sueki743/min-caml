@@ -121,10 +121,10 @@ let judge_witch_togo (i,j) cmp hypothesis =
       let j_cate=find_cate j var_category in
       (match cmp i_cate j_cate with
        |Some true ->
-          Format.eprintf "if %s unwritten goto 1!\n\n" a; 
+          (* Format.eprintf "if %s unwritten goto 1!\n\n" a;  *)
          ((a,pos),(l,1))
        |Some false->
-          Format.eprintf "if %s unwritten goto 2!\n\n" a; 
+          (* Format.eprintf "if %s unwritten goto 2!\n\n" a;  *)
          ((a,pos),(l,2))
        |None ->((a,pos),(l,0))))
     hypothesis

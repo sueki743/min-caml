@@ -22,6 +22,22 @@ type t =(*loop内の変数を分類*)
 
 let find a env = try M.find a env with Not_found ->a
 
+let print_path_from_root (a,poslist) =
+  let path=
+    List.fold_left
+      (fun path pos ->
+        match pos with  
+        |Array(Int(i))->path^(Printf.sprintf ".(%d)" i)
+        |Array(Index(i))->path^(Printf.sprintf ".(i+%d)" i)
+        |Array(_) ->path^(Printf.sprintf ".(unknown)" )
+        |Tuple(i) ->path^(Printf.sprintf ".<%d>" i)
+        |Ref ->path^".<refelm>" )
+      ""
+      poslist
+  in
+  Format.eprintf "%s%s@." a path
+
+  
 let print_apos (a,pos)=
   match pos with
   |Array(Int(i))->Format.eprintf "%s.(%d)@." a i

@@ -201,6 +201,22 @@ let mk_may_same_env {body=tree_map;roots=rts;eq_env=_}=
   M.empty
   rts
     
+(*根からのpathを返す*)
+let rec path_from_root  ({body=tree;roots=rts;eq_env=_} as array_tree) (a,pos)=
+  if(List.mem a rts)then
+    (a,[pos])
+  else
+    let (a_parents,a_children)=M.find a tree in
+    let original_parent=(*a_parentsの末尾が元々の親*)
+      let rec tail_elm =function
+        |[x] ->x
+        |x::xs->tail_elm xs
+        |[] ->assert false
+      in
+      tail_elm a_parents
+    in
+    let (r,ps)=path_from_root array_tree original_parent in
+    (r,ps@[pos])
+                          
         
-      
             

@@ -75,23 +75,23 @@ let rec can_parallelize global_regions  constenv fundef_env {name=(fun_name,t);a
     |ForLE(((i,a),(j,k),step),e) ->
       VarCatego.index_ref:=i;
       VarCatego.fundef_env:=fundef_env;
-      Printf.eprintf "\n%s\n\n\n\n\n" fun_name;
+      Format.eprintf "\n\n%s :judging -----> @." fun_name;
       (try
         let (rw_graph,array_tree)=
           Mk_rw_graph.f global_regions constenv e in
         let may_same_env=Array_tree.mk_may_same_env array_tree in
-        let _=Rw_g.analyze may_same_env rw_graph in
+        let _=Rw_g.analyze may_same_env array_tree rw_graph in
         ()
       with
       |Array_tree.Not_preserve(y,x) ->
-        Format.eprintf "not preserve %s<-%s@." y x
+        Format.eprintf "cannot parallelize this function:Not_preserve %s<-%s@." y x
       |Mk_rw_graph.Side_effect ->
-        Format.eprintf "side effect@."
+        Format.eprintf "cannot parallelize this function:side effect@."
       |Rw_g.WAR(a,pos) ->
-        Format.eprintf "WAR";
+        Format.eprintf "cannot parallelize this function:WAR over loop@.";
         VarCatego.print_apos (a,pos)
       |Rw_g.RAW(a,pos) ->
-        Format.eprintf "RAW";
+        Format.eprintf "cannot parallelize this function:RAW over loop@.";
         VarCatego.print_apos (a,pos)
       )
     
