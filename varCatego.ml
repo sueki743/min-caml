@@ -19,8 +19,17 @@ type t =(*loop内の変数を分類*)
    |Tuple of int(*tupleの要素位置はコンパイル時整数*)
    |Ref
 
+
 let find a env = try M.find a env with Not_found ->a
 
+let print_apos (a,pos)=
+  match pos with
+  |Array(Int(i))->Format.eprintf "%s.(%d)@." a i
+  |Array(Index(i))->Format.eprintf "%s.(i+%d)@." a i
+  |Array(_) ->Format.eprintf "%s.(unknown)@." a
+  |Tuple(i) ->Format.eprintf "tuple:%s,elm:%d@." a i
+  |Ref ->Format.eprintf "ref:%sd,elm@." a
+                                                     
 let rec subst env =function
   |Elm(a,pos)->Elm(find a env,pos)
   |Parent(pas)->Parent(List.map (fun (pos,a) ->(pos,find a env)) pas)
@@ -42,3 +51,10 @@ let cmpeq e1 e2 =
   |_ ->None
 
 
+let is_intpos = function
+  |Array(Int _)|Tuple _ ->true
+  |_ ->false
+
+let is_indexpos = function
+  |Array(Index _) ->true
+  |_ ->false
