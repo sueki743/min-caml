@@ -79,7 +79,7 @@ let allfregs = Array.to_list fregs
 let acc1 = "%f29"
 let acc2 = "%f30"
 let acc3 = "%f31"
-let allaccs = [acc1;acc2;acc2]
+let allaccs = [acc1;acc2;acc3]
              
 let reg_cl = regs.(Array.length regs - 1)(* closure address (caml2html: sparcasm_regcl) *)
 let reg_sw = "%r28"
