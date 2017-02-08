@@ -19,10 +19,11 @@ type t =(*loop内の変数を分類*)
    |Tuple of int(*tupleの要素位置はコンパイル時整数*)
    |Ref
 
+type pos_path = string * (elm_pos list)
 
 let find a env = try M.find a env with Not_found ->a
 
-let print_path_from_root (a,poslist) =
+let print_path_from_root ((a,poslist):pos_path) =
   let path=
     List.fold_left
       (fun path pos ->
@@ -37,7 +38,24 @@ let print_path_from_root (a,poslist) =
   in
   Format.eprintf "%s%s@." a path
 
-  
+let is_const_pos = function
+  |Array(Int _)|Tuple _|Ref ->true
+  |_ ->false
+let is_const_pospath (a,poslist)=
+  List.for_all is_const_pos poslist
+               
+let pospath2intlist (a,poslist) =
+    let intlist = 
+      List.map
+        (fun pos ->
+          match pos with
+          |Array(Int(i))|Tuple(i) ->i
+          |Ref ->0
+          |_ ->assert false)
+        poslist
+    in
+    (a,intlist)
+      
 let print_apos (a,pos)=
   match pos with
   |Array(Int(i))->Format.eprintf "%s.(%d)@." a i

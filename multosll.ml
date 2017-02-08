@@ -59,5 +59,19 @@ and multosll' env = function
 let h { name = l; args = xs; fargs = ys; body = e; ret = t } = 
   { name = l; args = xs; fargs = ys; body = multosll M.empty e; ret = t }
 
-let f (Prog(data, fundefs, e)) =
-  Prog(data,List.map h fundefs, multosll M.empty e)
+let i =function
+  |Some {pargs=xs;
+         pfargs=ys;
+         index=(i,(j',k'));
+         pbody=e
+        } ->
+    Some {pargs=xs;
+          pfargs=ys;
+          index=(i,(j',k'));
+          pbody=multosll M.empty e}
+
+  |None ->None
+
+
+let f (Prog(data, fundefs,parallel, e)) =
+  Prog(data,List.map h fundefs, i parallel,multosll M.empty e)

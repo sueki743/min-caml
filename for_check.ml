@@ -41,16 +41,6 @@ ref型変数は、1要素配列と同等だが、レジスタに割り当てら�
 
 exception CANNOT_CONVERT;;
   
-     
-let rec cons defs1 defs2 =
-  match defs1 with
-  |Let(xt,e1,e2) ->Let(xt,e1,cons e2 defs2)
-  |LetRec(fundef,e2)->LetRec(fundef,cons e2 defs2)
-  |LetTuple(xs,y,e2) ->LetTuple(xs,y,cons e2 defs2)
-  |Let_Ref(xt,e1,e2) ->Let_Ref(xt,e1,cons e2 defs2)
-  |Unit ->defs2
-  |e ->let dummy =Id.genid "unit" in
-       Let((dummy,Type.Unit),e,defs2)
        
 let search_unchanged_arg {name = (x,t);args = yts;body=e}=(*末尾呼び出しで不変な引数*)
   let ys = List.map fst yts in
@@ -58,7 +48,7 @@ let search_unchanged_arg {name = (x,t);args = yts;body=e}=(*末尾呼び出し�
     |IfEq(_,_,e1,e2)|IfLE(_,_,e1,e2) ->List.filter
                       (fun arg ->List.mem arg (unchanged_arg e1))
                       (unchanged_arg e2)
-    |Let(_,_,e1)|LetTuple(_,_,e1)|LetRec(_,e1)->unchanged_arg e1
+    |Let(_,_,e1)|LetTuple(_,_,e1)|LetRec(_,e1)|LetPara(_,e1)->unchanged_arg e1
     |App(f,arglist) when f=x ->(*再帰呼び出し*)
       List.fold_left2(*arglistのうちysと一致するもの返す*)
         (fun unchanged arg arg' ->if(arg=arg') then arg::unchanged
@@ -106,6 +96,7 @@ let search_unchanged_var unchanged_args {name = (x,_);args = yts;body=e} =
         (unchanged_vars2,LetRec(fundef,defs2))
       else
         search unchanged_vars e2
+    |LetPara(_,e2) ->search unchanged_vars e2
     |IfEq(_,_,e1,e2)|IfLE(_,_,e1,e2) ->
       let (vars1,defs1)=search unchanged_vars e1 in
       let (vars2,defs2)=search unchanged_vars e2 in
@@ -140,6 +131,7 @@ let rec search_def j =function (*変数jの定義を探してくる*)
   |Let_Ref((a,t),e1,e2) when a=j ->
     Let_Ref((a,t),e1,Unit)
   |Let_Ref(xt,e1,e2) ->search_def j e2
+  |LetPara(_,e2) ->search_def j e2
   |_ ->raise Not_found
                                  
 
@@ -190,7 +182,7 @@ let next_arg i {name=(x,t);args=yts;body=e} =
       let list1=next_id e1 in
       let list2=next_id e2 in
       list1@(List.filter (fun x ->not (List.mem x list1)) list2)
-    |Let(_,_,e2)|LetRec(_,e2)|Let_Ref(_,_,e2) ->
+    |Let(_,_,e2)|LetRec(_,e2)|Let_Ref(_,_,e2)|LetPara(_,e2) ->
       next_id e2
     |LetTuple(_,_,e2) ->
       next_id e2
@@ -225,6 +217,9 @@ let search_tail e =
     |Let_Ref(xt,e1,e2) ->
       let (e3,tail) = inner e2 in
       (Let_Ref(xt,e1,e3),tail)
+    |LetPara(parallel,e2) ->
+      let (e3,tail) = inner e2 in
+      (LetPara(parallel,e3),tail)
     |e ->(Unit,e)
   in
   inner e
@@ -251,6 +246,8 @@ let rec tailrec_to_put args ref_env f e =(*末尾再帰をputに変換*)
          cons pre_exp (LetTuple(xts,y,(inner e2)))
        |Let_Ref(xt,e1,e2) ->
          cons pre_exp (Let_Ref(xt,e1,(inner e2)))
+       |LetPara(para,e2) ->
+         cons pre_exp (LetPara(para,(inner e2)))
        |App(f',arg_list) when f' = f ->
          let put_exp =
            List.fold_left
@@ -292,12 +289,14 @@ let rec  rm_def vars =function
   |Let_Ref(xt,e1,e2) ->Let_Ref(xt,e1,rm_def vars e2)
   |LetRec(fundef,e2) ->LetRec(fundef,rm_def vars e2)
   |LetTuple(xts,y,e2) ->LetTuple(xts,y,rm_def vars e2)
+  |LetPara(para,e2) ->LetPara(para,rm_def vars e2)
   |IfEq(i,j,e1,e2) ->IfEq(i,j,rm_def vars e1,rm_def vars e2)
   |IfLE(i,j,e1,e2) ->IfLE(i,j,rm_def vars e1,rm_def vars e2)
   |e ->e                 
            
 let rec is_tailrec f = function
-  |Let(_,_,e2)|LetRec(_,e2)|LetTuple(_,_,e2)|Let_Ref(_,_,e2) ->is_tailrec f e2
+  |Let(_,_,e2)|LetRec(_,e2)|LetTuple(_,_,e2)|Let_Ref(_,_,e2)
+   |LetPara(_,e2)->is_tailrec f e2
   |IfEq(_,_,e1,e2)|IfLE(_,_,e1,e2) ->(is_tailrec f e1)&&(is_tailrec f e2)
   |App(x,_) when x=f ->true
   |_ ->false
@@ -320,7 +319,7 @@ let for_check  ({name = (x,t);args = yts;body=e} as fundef) =(*for分に変換�
         let rec convert2for index_var step e_continue e_return =
           let ref_index = Id.genid "index_var" in(*ref_ == 再代入可能変数,まず帰納的変数の再代入可能変数を用意*)
           let changed_arg_t = List.filter (fun (x,_)->not (List.mem x unchanged_args))
-                                                   
+                                          
                                           yts
           in
           (assert (List.mem_assoc index_var changed_arg_t));

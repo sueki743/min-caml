@@ -3,10 +3,10 @@ open KNormal
 let rec effect = function (* 副作用の有無 (caml2html: elim_effect) *)
   | Let(_, e1, e2)|Let_Ref(_,e1,e2)
     | IfEq(_, _, e1, e2) | IfLE(_, _, e1, e2) -> effect e1 || effect e2
-  | LetRec(_, e) | LetTuple(_, _, e) -> effect e
+  | LetRec(_, e) | LetTuple(_, _, e)|LetPara(_,e) -> effect e
   | ForLE(_,_) ->true
   | App _ | Put _ | ExtFunApp _| Read_int _|Read_float _|Print_char _
-    |Ref_Put _|Ref_Get _-> true
+    |Ref_Put _|Ref_Get _|Run_parallel _|Accum _-> true
   | _ -> false
 
 let rec f = function (* 不要定義削除ルーチン本体 (caml2html: elim_f) *)
@@ -39,4 +39,14 @@ let rec f = function (* 不要定義削除ルーチン本体 (caml2html: elim_f) *)
        ((*Format.eprintf "eliminating variable %s@." x;*)
         e2')
   | ForLE(cs,e) -> ForLE(cs,f e)
+  | LetPara({pargs=xts;
+             index =cs
+            ;accum=acc
+            ;pbody=e1},e2) ->(*削除されることはない*)
+     LetPara({pargs=xts;
+              index =cs
+             ;accum=acc
+             ;pbody=f e1},f e2) 
+
+
   | e -> e

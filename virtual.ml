@@ -80,7 +80,11 @@ let read_float_virtual () =
 let print_char_virtual x =Ans(Out(x))
   
 
-                                 
+let parallel_mode = ref false
+let dummy=Id.genid "dummy"
+let parallel_index =ref dummy
+let parallel_array2acc = ref []
+let parallel_acc2array = ref []
   
 let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml2html: virtual_g) *)
   | Closure.Unit -> Ans(Nop)
@@ -171,6 +175,25 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
   | Closure.AppDir(Id.L(x), ys) ->
       let (int, float) = separate (List.map (fun y -> (y, M.find y env)) ys) in
       Ans(CallDir(Id.L(x), int, float))
+  | Closure.Run_parallel(a,d,xs,ys) ->
+     let (int,float) = separate (List.map (fun x ->(x,M.find x env)) xs) in
+     let load2acc=
+       List.fold_left
+         (fun load (acc,(a,i)) ->
+           Let((acc,(Type.Float)),(FLw(i,a)),load))
+         (Ans(Nop))
+         (!parallel_acc2array)
+     in
+     let store2acc=
+       List.fold_left
+         (fun store (acc,(a,i)) ->
+           seq(FSw(acc,i,a),store))
+         (Ans(Nop))
+         !parallel_acc2array
+     in
+     cons load2acc
+          (cons (Ans(Run_parallel(a,d,int,float)))
+                store2acc)
   | Closure.Tuple(xs) -> (* 組の生成 (caml2html: virtual_tuple) *)
       let y = Id.genid "t" in
       let (offset, store) =
@@ -247,7 +270,9 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
      let tmp = Id.genid "unit" in
      Ans(ForLE(((i,V(a)),(V(j),V(k)),
                 concat (g env constenv step) (tmp,Type.Int) (Ans(Ref_Put(i,tmp))))
-               ,g env constenv e))
+              ,g env constenv e))
+  (* | Closure.Ref_Get(x) when (!parallel_mode)&&(x= !parallel_index) -> *)
+  (*   (Ans( Next)) *)
   | Closure.Ref_Get(x) ->
      (match M.find x env with
       |Type.Ref(Type.Float) ->Ans(Ref_FGet(x))
@@ -259,6 +284,13 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
       |Type.Float ->Ans(Ref_FPut(x,y))
       |Type.Ref _ ->assert false
       |_ ->Ans(Ref_Put(x,y)))
+  | Closure.Accum(a,n,x) ->
+     assert !parallel_mode;     (* accumは並列部にしか出てこない *)
+     assert (M.mem n constenv);
+     let n_i =
+       (match M.find n constenv with Closure.Int(i),_ ->i|_ ->assert false) in
+     let acc = List.assoc (a,n_i) !parallel_array2acc in
+     (Ans(Acc(acc,x)))
 
 (* 関数の仮想マシンコード生成 (caml2html: virtual_h) *)
 let h { Closure.name = (Id.L(x), t); Closure.args = yts; Closure.formal_fv = zts; Closure.body = e } =
@@ -274,9 +306,67 @@ let h { Closure.name = (Id.L(x), t); Closure.args = yts; Closure.formal_fv = zts
       { name = Id.L(x); args = int; fargs = float; body = load; ret = t2 }
   | _ -> assert false)
 
+
+(* accumulateする配列変数ににaccを割り当てる (env)
+accに対応する配列変数を対応させる(invert_env)*)
+let rec distr_acc acc_arrays =
+  let (array2acc,acc2array,_)=
+    List.fold_left
+      (fun (array2acc,acc2array,remain_acc) arrays ->
+        match remain_acc with
+        |acc::remain ->
+          assert( arrays<>[]);
+          let array_acc=List.map (fun (a,i) ->((a,i),acc)) arrays in
+          let acc2array' =(acc,(List.hd arrays))::acc2array in
+          (array_acc@array2acc,acc2array',remain)
+        |[] ->assert false)
+      ([],[],allaccs)
+      acc_arrays
+  in
+  (array2acc,acc2array)
+        
+  
+    
+let i {Closure.pargs=xts;
+       Closure.index=(i,(j',k'));
+       Closure.accum=acc_arrays;
+       Closure.pbody=e} =
+
+
+  let (int, float) = separate xts in  
+  let array2acc,acc2array=distr_acc acc_arrays in
+  parallel_index:=i;
+
+  parallel_array2acc:=array2acc;
+  parallel_acc2array:=acc2array;
+  parallel_mode:=true;
+  let env' = M.add i (Type.Ref (Type.Int)) (M.add_list xts (M.empty)) in
+  let e' = g env' M.empty e in
+
+  (* let store = *)
+  (*   List.fold_left *)
+  (*     (fun store (acc,(y,i)) -> *)
+  (*       seq(FSw(acc,i,y),store)) *)
+  (*     (Ans(Nop)) *)
+  (*     acc2array *)
+  (* in *)
+  parallel_mode:=false;
+  {pargs=int;
+   pfargs=float;
+   index=(i,(to_id_imm j',to_id_imm k'));
+   pbody=e'}
+   
+  
+
 (* プログラム全体の仮想マシンコード生成 (caml2html: virtual_f) *)
-let f (Closure.Prog(fundefs, e)) =
+let f (Closure.Prog(fundefs,parallel, e)) =
   data := [];
-  let fundefs = List.map h fundefs in
+  let parallel' =if(List.length parallel)=0 then
+                   None
+                 else if(List.length parallel)=1 then
+                   Some (i (List.hd parallel))
+                 else
+                   assert false in
+  let fundefs = List.map h fundefs in  
   let e = g M.empty M.empty e in
-  Prog(!data, fundefs, e)
+  Prog(!data, fundefs,parallel', e)

@@ -120,6 +120,9 @@ let rec g oc tree depth =
     fprintf oc "%*s" depth "";fprintf oc "endforLE\n"
   |Ref_Get(t) ->fprintf oc "Ref_Get(%s)\n" t
   |Ref_Put(t1,t2) ->fprintf oc "Ref_Put(%s<-%s)\n" t1 t2
+  |Run_parallel(a,d,xs,ys) ->fprintf oc "run_prallel(%s,%s)\n" a d;
+                      List.iter (fun x ->print_id oc x (depth+1)) xs
+  |Accum(a,n,x) ->fprintf oc "Accum(%s.(%s)  %s" a n x
                                         
 
 
@@ -135,8 +138,10 @@ let print_fundef oc fundef =
   g oc funbody 1;
   fprintf oc "\n>>\n"
 
+          
+
 let f oc p = match p with
-  |Prog (fundefl,tree)->
+  |Prog (fundefl,parallel,tree)->
     if fundefl = [] then fprintf oc "no fundef\n"
     else ignore (List.map (print_fundef oc) fundefl);
                         fprintf oc "\n";

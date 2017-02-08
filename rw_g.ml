@@ -68,6 +68,14 @@ let set_children l children  g=
 let change_lavel_name before_l after_l g =
   let node = M.find before_l g in
   M.add after_l node (M.remove before_l g)
+        
+let add_dummy {graph=g;end_l=el} =
+  let new_lavel = genlavel () in
+  let g'=set_children el (Seq(new_lavel)) g in
+  let g''
+    =M.add new_lavel  {rw=Not;pre_w=[];next=No_next} g'
+  in
+  { graph=g'' ; end_l=new_lavel }
                                     
                                     
 let add_read new_lavel (a,pos) pre_written {graph=g;end_l=el} =
@@ -242,7 +250,7 @@ let rec unique_list = function
       
 exception WAR of Id.t*VarCatego.elm_pos
 exception RAW of Id.t*VarCatego.elm_pos
-let analyze' (l,end_l) graph env=
+let analyze' (l,end_l) graph env array_tree=
   
   let rec inner (l,end_l) (read,write,may_write,localWAR,acum) trace_env  =
     if(l=end_l)then (read,write,may_write,localWAR,acum,trace_env)
@@ -253,7 +261,7 @@ let analyze' (l,end_l) graph env=
 
         match read_write with
         |Read(a,pos) ->
-          (* Format.eprintf "read@."; *)
+                  (* Format.eprintf "read@."; *)
           (* VarCatego.print_apos (a,pos); *)
           if(List.mem (a,pos) write&&pos<>unknown) then
             let localWAR'=add_list (a,pos) localWAR in
@@ -271,9 +279,9 @@ let analyze' (l,end_l) graph env=
           else
             (add_list (a,pos) read,write,may_write,localWAR,acum,trace_env)
         |Write(a,pos,x) ->
-          (* Format.eprintf "write@."; *)
+                  (* Format.eprintf "write@."; *)
           (* VarCatego.print_apos (a,pos); *)
-          let raws=
+          let raws=(*以前のreadの中で影響しうる配列要素*)
             List.filter (fun (a',pos') ->may_same env (a,pos) (a',pos')) read in
 
           if(raws=[])then
@@ -281,7 +289,9 @@ let analyze' (l,end_l) graph env=
             let may_write' = add_list (a,pos) may_write in
             (read,write',may_write',localWAR,acum,trace_env)
           else if(raws=[(a,pos)]&&pos<>unknown&&M.mem x trace_env) then
-            if((M.find x trace_env)=(a,pos)) then
+            let aposs =Array_tree.path_from_root array_tree (a,pos) in
+            if((M.find x trace_env)=(a,pos)&&VarCatego.is_const_pospath aposs) then
+              (*コンパイル時に定まる位置に値が積算している*)
               let write' =add_list (a,pos) write in
               let may_write' = add_list (a,pos) may_write in
               let acum'=add_list (a,pos) acum in
@@ -321,10 +331,10 @@ let analyze' (l,end_l) graph env=
           localWAR1@(List.filter (fun x ->not (List.mem x localWAR1)) localWAR2)
         in
         let acum''=acum1@(List.filter (fun x ->not (List.mem x acum1)) acum2) in
-        let trace_env''=M.union (fun x ap1 ap2->assert (ap1=ap2);Some ap1)
-                                trace_env1
-                                trace_env2 in
-        inner (join_l,end_l) (read'',write'',may_write'',localWAR'',acum'') trace_env''
+        (* let trace_env''=M.union (fun x ap1 ap2->assert (ap1=ap2);Some ap1) *)
+        (*                         trace_env1 *)
+        (*                         trace_env2 in *)
+        inner (join_l,end_l) (read'',write'',may_write'',localWAR'',acum'') trace_env'
       |No_next ->assert false
   in
 
@@ -340,7 +350,7 @@ let print_rw_info head aposs =
         
 let analyze env array_tree {graph=g;end_l=el} =
   let (read,write,may_write,localWAR,acum,trace_env)=
-    analyze' (start_l,el) g env
+    analyze' (start_l,el) g env array_tree
   in
   let read=
     List.map (Array_tree.path_from_root array_tree) (unique_list read) in
@@ -356,6 +366,7 @@ let analyze env array_tree {graph=g;end_l=el} =
   print_rw_info "//readonly//" (List.sort compare read) ;
   print_rw_info "//write//" (List.sort compare may_write) ;
   print_rw_info "//WAR closed in one loop//" (List.sort compare localWAR);
-  print_rw_info "//acumulate through loop//" (List.sort compare acum);
-  Format.eprintf "------------------------------------------------------->>@."
+  print_rw_info "//accumulate through loop//" (List.sort compare acum);
+  Format.eprintf "------------------------------------------------------->>@.";
+  acum
                 

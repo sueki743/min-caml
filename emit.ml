@@ -131,6 +131,7 @@ and g' oc pre = function (* 各命令のアセンブリ生成 (caml2html: emit_g
   | NonTail(x), Itof(y) -> Printf.fprintf oc "\titof\t%s, %s\n" x y
   | NonTail(x), FAbs(y) -> Printf.fprintf oc "\tabs.s\t%s, %s\n" x y
   | NonTail(x), FSqrt(y) -> Printf.fprintf oc "\tsqrt.s\t%s, %s\n" x y
+  | NonTail(_), Acc(acc,y) ->Printf.fprintf oc "\tacc\t%s, %s\n" acc y
   | NonTail(x), In -> Printf.fprintf oc "\tlui\t%s, 0\n\tin\t%s\n" x x
   | NonTail(_), Out(x) -> Printf.fprintf oc "\tout\t%s\n" x
   | NonTail(_), Comment(s) -> Printf.fprintf oc "\t! %s\n" s
@@ -216,7 +217,7 @@ and g' oc pre = function (* 各命令のアセンブリ生成 (caml2html: emit_g
      stackset:=stack_set_back
   |_,Ref_Get _|_,Ref_Put _ |_,Ref_FGet _|_,Ref_FPut _ ->assert false
   (* 末尾だったら計算結果を第一レジスタにセットしてret (caml2html: emit_tailret) *)
-  | Tail, (Nop | Sw _ | FSw _ | Comment _ | Save _ |Out _ |ForLE _ as exp) ->
+  | Tail, (Nop | Sw _ | FSw _ |Acc _| Comment _ | Save _ |Out _ |ForLE _ as exp) ->
       g' oc pre (NonTail(Id.gentmp Type.Unit), exp);
       Printf.fprintf oc "\tjr\t%s\n" reg_ra
   | Tail, ( Add _ | Sub _ |Mul _|Div _| SLL _ | SRL _| SRA _| Lw _ |La _ |Ftoi _
@@ -289,6 +290,18 @@ and g' oc pre = function (* 各命令のアセンブリ生成 (caml2html: emit_g
   | Tail, CallDir(Id.L(x), ys, zs) -> (* 末尾呼び出し *)
       g'_args oc [] ys zs;
       Printf.fprintf oc "\tj\t%s\n" x;
+  | Tail, Run_parallel(a,d,ys,zs) ->
+     g'_args oc [] ys zs;
+     Printf.fprintf oc "\tfork\t%s, %s" a d
+  | NonTail(_), Run_parallel(a,d,ys,zs) ->
+     g'_args oc [] ys zs;
+      let ss = stacksize () in
+      Printf.fprintf oc "\tsw\t%s, %d(%s)\n" reg_ra (ss-1) reg_sp;
+      Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sp reg_sp ss;
+      Printf.fprintf oc "\tfork\t%s, %s\n" a d; (* returnアドレスいらない? *)
+      Printf.fprintf oc "\taddi\t%s, %s, -%d\n" reg_sp reg_sp ss;
+      Printf.fprintf oc "\tlw\t%s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
+
   | NonTail(a), CallCls(x, ys, zs) ->
       g'_args oc [(x, reg_cl)] ys zs;
       let ss = stacksize () in
@@ -314,7 +327,7 @@ and g' oc pre = function (* 各命令のアセンブリ生成 (caml2html: emit_g
 	Printf.fprintf oc "\taddi\t%s, %s, 0\n" a regs.(0)
       else if List.mem a allfregs && a <> fregs.(0) then
 	Printf.fprintf oc "\tmov.s\t%s, %s\n" a fregs.(0)
-     
+  |_,Next ->assert false     
 and int_tail_if oc pre r1 r2 e1 e2 b bn =(*bn r1 r2がtrueでe1*)
   let b_else = Id.genid (b ^ "_else") in
   Printf.fprintf oc "\t%s\t%s, %s, %s\n" bn r1 r2 b_else;
@@ -384,7 +397,61 @@ let h oc { name = Id.L(x); args = _; fargs = _; body = e; ret = _ } =
   Printf.fprintf oc "%s:\n" x;(*ラベル*)
   stackset := M.empty;
   stackmap := [];
-  g oc (Ans(Nop)) (Tail, e) 
+  g oc (Ans(Nop)) (Tail, e)
+
+let print_parallel oc = function
+  |Some {pargs=_;
+         pfargs=_;
+         index=(i,(j',k'));
+         pbody=e} ->
+         
+     let lavel=Id.genid "loop" in
+     let lavel_end=Id.genid "loop_end" in
+     Printf.fprintf oc "\tnext\t%s\n" i;
+     (if(j'=V(i)) then
+       (match k' with
+        |V(k) ->
+          Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_sw i k;
+          Printf.fprintf oc "\tbeq\t%s, %s, %s\n" reg_zero reg_sw lavel_end
+        |C(k_i) ->
+          Printf.fprintf oc "\tslti\t%s, %s, %d\n" reg_sw i k_i;
+          Printf.fprintf oc "\tbeq\t%s, %s, %s\n" reg_zero reg_sw lavel_end)
+     else if(k'=V(i)) then
+       (match j' with
+        |V(j) ->
+          Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_sw j i;
+          Printf.fprintf oc "\tbeq\t%s, %s, %s\n" reg_zero reg_sw lavel_end
+        |C(j_i) ->
+          Printf.fprintf oc "\tslti\t%s, %s, %d\n" reg_sw i (j_i-1);
+          Printf.fprintf oc "\tbne\t%s, %s, %s\n" reg_zero reg_sw lavel_end)
+     else
+       assert false);
+     Printf.fprintf oc "%s:\n" lavel;
+
+     g oc (Ans(Nop)) (NonTail("%g0"), e);
+     (if(j'=V(i)) then
+       (match k' with
+        |V(k) ->
+          Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_sw i k;
+          Printf.fprintf oc "\tbne\t%s, %s, %s\n" reg_zero reg_sw lavel
+        |C(k_i) ->
+          Printf.fprintf oc "\tslti\t%s, %s, %d\n" reg_sw i k_i;
+          Printf.fprintf oc "\tbne\t%s, %s, %s\n" reg_zero reg_sw lavel)
+     else if(k'=V(i)) then
+       (match j' with
+        |V(j) ->
+          Printf.fprintf oc "\tslt\t%s, %s, %s\n" reg_sw j i;
+          Printf.fprintf oc "\tbne\t%s, %s, %s\n" reg_zero reg_sw lavel
+        |C(j_i) ->
+          Printf.fprintf oc "\tslti\t%s, %s, %d\n" reg_sw i (j_i-1);
+          Printf.fprintf oc "\tbeq\t%s, %s, %s\n" reg_zero reg_sw lavel)
+     else
+       assert false);
+     Printf.fprintf oc "%s:\n" lavel_end;
+     Printf.fprintf oc "\tend\n"
+
+  |None-> ()
+    
 
 
 let print_const oc (e:HpAlloc.t)=
@@ -411,10 +478,11 @@ let print_tuple oc {HpAlloc.name=(Id.L(x),t);HpAlloc.body=es}=
     (print_const oc)
     es
 
+
     
-let f oc (Prog(data, fundefs, e)) =
+let f oc oc_childe (Prog(data, fundefs,parallel, e)) =
   Format.eprintf "generating assembly...@.";
-  Printf.fprintf oc ".section\t\".rodata\"\n";
+  Printf.fprintf oc  ".section\t\".rodata\"\n";
   Printf.fprintf oc ".align\t8\n";
   List.iter
     (fun (Id.L(x), d) ->
@@ -435,4 +503,26 @@ let f oc (Prog(data, fundefs, e)) =
   g oc (Ans(Nop)) (NonTail(regs.(0)), e);
   Printf.fprintf oc "\tin\t%%r1\n";
   Printf.fprintf oc "\tj\tmin_caml_start\n";
-  List.iter (fun fundef -> h oc fundef) fundefs
+  List.iter (fun fundef -> h oc fundef) fundefs;
+
+  (* 以下子コア用のコード *)
+  Printf.fprintf oc_childe  ".section\t\".rodata\"\n";
+  Printf.fprintf oc_childe ".align\t8\n";
+  List.iter
+    (fun (Id.L(x), d) ->
+      Printf.fprintf oc_childe "%s:\t! %f\n" x d;
+      Printf.fprintf oc_childe "\t0x%lx\n" (gethi d);)
+    data;
+  List.iter(*静的な組*)
+    (print_tuple oc_childe)
+    !HpAlloc.tuples;
+  List.iter(*静的な配列*)
+    (print_array oc_childe)
+    !HpAlloc.arrays;
+  Printf.fprintf oc_childe ".section\t\".text\"\n";
+  Printf.fprintf oc_childe ".global\tmin_caml_start\n";
+  Printf.fprintf oc_childe "min_caml_start:\n";
+  stackset := M.empty;
+  stackmap := [];
+  print_parallel oc_childe parallel;
+  List.iter (fun fundef -> h oc_childe fundef) fundefs

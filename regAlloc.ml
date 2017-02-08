@@ -570,6 +570,9 @@ and g' dest cont regenv ref_env = function (* 各命令のレジスタ割り当�
 
                                                                                                                                  
   | Save(x, y) -> assert false
+  |Run_parallel(a,d,xs,ys) as exp-> g'_call dest cont regenv ref_env exp (fun ys zs -> Run_parallel(find a (Type.Int) regenv,find d Type.Float regenv,xs, ys)) xs ys
+  |Next ->((Ans(Next),regenv,ref_env))
+  |Acc(acc,x) ->(Ans(Acc(acc,find x (Type.Float) regenv))),regenv,ref_env
 
 and g'_for dest cont regenv ref_env exp constr step e  =
  
@@ -742,7 +745,7 @@ and g'_if dest cont regenv ref_env  exp constr e1 e2 = (* ifのレジスタ割�
      (Ans(if_exp))
      save_r_x,
    regenv',ref_env')
-and g'_call dest cont regenv ref_env exp constr ys zs = (* 関数呼び出しのレジスタ割り当て (caml2html: regalloc_call) *)
+and g'_call dest cont regenv ref_env exp constr ys zs = (* 呼び出し前の退避 *)
   let call_exp = constr
 	           (List.map (fun y -> find y Type.Int regenv) ys)
 	           (List.map (fun z -> find z Type.Float regenv) zs) in
@@ -794,12 +797,90 @@ let h { name = Id.L(x); args = ys; fargs = zs; body = e; ret = t } = (* 関数�
       g (a, t) (Ans(Add(a,C(0)))) regenv M.empty e in
   { name = Id.L(x); args = arg_regs; fargs = farg_regs; body = e'; ret = t }
 
-let f (Prog(data, fundefs, e)) = (* プログラム全体のレジスタ割り当て (caml2html: regalloc_f) *)
+let i =function
+  |Some {pargs=xs;
+         pfargs=ys;
+         index=(index,(j',k'));
+         pbody=e
+        } ->
+    save_ref:=[];
+    let ref_env = M.add index regs.(0) (M.empty) in
+    let (i, arg_regs, regenv) =
+      List.fold_left
+        (fun (i, arg_regs, regenv) y ->
+          let r = regs.(i) in
+          (i + 1,
+	   arg_regs @ [r],
+	   (assert (not (is_reg y));
+	    M.add y r regenv)))
+        (1, [], M.empty)
+        xs in
+    let (d, farg_regs, regenv) =
+      List.fold_left
+        (fun (d, farg_regs, regenv) z ->
+          let fr = fregs.(d) in
+          (d + 1,
+	   farg_regs @ [fr],
+	   (assert (not (is_reg z));
+	    M.add z fr regenv)))
+        (0, [], regenv)
+        ys in
+    let index_regs=(find_ref index (Type.Ref (Type.Int)) ref_env,
+                    ((if j'=V(index) then
+                        V(find_ref index (Type.Ref(Type.Int)) ref_env)
+                       else find' j' regenv),
+                     (if k'=V(index) then
+                        V(find_ref index (Type.Ref(Type.Int)) ref_env)
+                       else find' k' regenv))
+                    ) in
+                     
+    let (e',regenv2,ref_env2)=
+      g (Id.gentmp Type.Unit,Type.Unit) (Ans(Nop)) regenv ref_env e in
+    let arguments = xs@ys in
+    let (adj_save,adj_mv_list,adj_restore),(regenv3,ref_env3) =
+      adjust (regenv,ref_env) (regenv2,ref_env2) arguments in
+    let adj_mv =
+      List.fold_left
+        (fun adj_mv' (r',r) ->
+          if(List.mem r allregs) then
+            Let((r,Type.Int),Add(r',C(0)),adj_mv')
+          else
+            Let((r,Type.Float),(FMov(r')),adj_mv'))
+        (Ans(Nop))
+        (List.rev (shuffle (reg_sw,reg_fsw) adj_mv_list)) in
+    (if adj_save <>(Ans(Nop)) then Format.eprintf "there are adj_save(p)\n";
+     if adj_mv_list<>[] then Format.eprintf "there are adj_move(p)\n";
+     if adj_restore <>(Ans(Nop)) then Format.eprintf "there are adj_restore(p)\n");
+  let e'' =
+    cons e' (cons adj_save (cons adj_mv adj_restore)) in
+    
+  assert (List.for_all (fun x ->if(M.mem x regenv)then
+                                  let r'=M.find x regenv in
+                                  let r=M.find x regenv3 in
+                                  r=r'
+                                else if(M.mem x ref_env) then
+                                  let r'=M.find x ref_env in
+                                  let r=M.find x ref_env3 in
+                                  r=r'
+                                else
+                                  true)
+                       arguments);(*整合性チェック*)
+    
+    
+  Some {pargs=arg_regs;
+        pfargs=farg_regs;
+        index=index_regs;
+        pbody=e''}
+        
+  |None ->None
+
+
+let f (Prog(data, fundefs,parallel, e)) = (* プログラム全体のレジスタ割り当て (caml2html: regalloc_f) *)
   Format.eprintf "register allocation: may take some time (up to a few minutes, depending on the size of functions)\n
-                  計算オーダがn^2になってしまっているので遅いです(改良しないといけないですね）m()m\n
                   minrtのコンパイルでは,,\n
                   -inline 300で10分、-inline 1000で40分くらいかかりましたが、動的命令数はあまり変わらないです@.";
   let fundefs' = List.map h fundefs in
+  let parallel'=i parallel in
   save_ref:=[];
   let e', regenv',ref_env'= g (Id.gentmp Type.Unit, Type.Unit) (Ans(Nop)) M.empty M.empty e in(*全体はユニット型だから、dest*)
-  Prog(data, fundefs', e')
+  Prog(data, fundefs',parallel', e')

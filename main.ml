@@ -8,10 +8,11 @@ let rec iter n e = (* 最適化処理をくりかえす (caml2html: main_iter) *)
   if e = e' then e else
   iter (n - 1) e'
 
-let lexbuf outchan outchan2 outchan3 outchan4 l glb_l= (* バッファをコンパイルしてチャンネルへ出力する (caml2html: main_lexbuf) *)
+let lexbuf outchan oc_childe outchan2 outchan3 outchan4 l glb_l= (* バッファをコンパイルしてチャンネルへ出力する (caml2html: main_lexbuf) *)
   Id.counter := 0;
   Typing.extenv := M.empty;
   Emit.f outchan
+         oc_childe
          (RegAlloc.f
             (Multosll.f
             (Simm.f
@@ -23,7 +24,8 @@ let lexbuf outchan outchan2 outchan3 outchan4 l glb_l= (* バッファをコンパイルし
                       (Emit_knormal.f
                          outchan3
 		         (iter !limit
-                               (Parallelize.f
+              
+                                (Parallelize.f
                                (Emit_knormal.f
                                   outchan3
                                   (Unique_constdef.f
@@ -41,7 +43,7 @@ let lexbuf outchan outchan2 outchan3 outchan4 l glb_l= (* バッファをコンパイルし
                                                  (Parser.exp Lexer.token glb_l))))))))))))))))))))
 
          
-let string s glbchan = lexbuf stdout stdout stdout stdout (Lexing.from_string s) (Lexing.from_channel glbchan) (* 文字列をコンパイルして標準出力に表示する (caml2html: main_string) *)
+let string s glbchan = lexbuf stdout stdout stdout stdout stdout (Lexing.from_string s) (Lexing.from_channel glbchan) (* 文字列をコンパイルして標準出力に表示する (caml2html: main_string) *)
 
 let file f = (* ファイルをコンパイルしてファイルに出力する (caml2html: main_file) *)
 
@@ -63,13 +65,15 @@ let file f = (* ファイルをコンパイルしてファイルに出力する (caml2html: main_file
   let inchan = open_in (f ^ ".mlo") in
   let glbchan = open_in ("globals.ml") in
   let outchan = open_out (f ^ ".s") in
+  let oc_child = open_out (f^"child.s") in
   let outchan2 = open_out (f ^ "_syn.txt") in
   let outchan3 = open_out (f^"_k1.txt") in
   let outchan4 = open_out (f^"_closure.txt") in
   try
-    lexbuf outchan outchan2 outchan3 outchan4 (Lexing.from_channel inchan) (Lexing.from_channel glbchan);
+    lexbuf outchan oc_child outchan2 outchan3 outchan4 (Lexing.from_channel inchan) (Lexing.from_channel glbchan);
     close_in inchan;
     close_out outchan;
+    close_out oc_child;
     close_out outchan2;
     close_out outchan3;
     close_out outchan4;

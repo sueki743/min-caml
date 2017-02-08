@@ -1,5 +1,6 @@
 (* give names to intermediate values (K-normalization) *)
 
+
 type t = (* K正規化後の式 (caml2html: knormal_t) *)
   | Unit
   | Int of int
@@ -42,9 +43,21 @@ type t = (* K正規化後の式 (caml2html: knormal_t) *)
                                     配列と違いレジスタに割り当てる*)
   |Ref_Get of Id.t
   |Ref_Put of Id.t * Id.t
+  (*以下を追加*)
+  |LetPara of parallel * t
+  |Run_parallel of Id.t*Id.t*Id.t list* (Id.t*int) list
+  (*(a,d) argument acc  a:初期値,d：ステップ  acc:accumulateするarray達*)
+  |Accum of Id.t*Id.t*Id.t
                    
                    
-and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
+ and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
+
+ and parallel ={pargs:(Id.t*Type.t) list;
+                index:(Id.t*(Id.vc*Id.vc)) ;
+                accum:(Id.t*int)list list;
+                pbody : t }     (* 自由変数を解決するのはclosure.g *)
+
+
 
 let rec fv = function (* 式に出現する（自由な）変数 (caml2html: knormal_fv) *)
   | Unit | Int(_) | Float(_) | ExtArray(_) -> S.empty
@@ -59,12 +72,37 @@ let rec fv = function (* 式に出現する（自由な）変数 (caml2html: knormal_fv) *)
       let zs = S.diff (fv e1) (S.of_list (List.map fst yts)) in
       S.diff (S.union zs (fv e2)) (S.singleton x)
   | App(x, ys) -> S.of_list (x :: ys)
-  | Tuple(xs) | ExtFunApp(_, xs) -> S.of_list xs
+  | Tuple(xs) | ExtFunApp(_, xs)-> S.of_list xs
   | Put(x, y, z) -> S.of_list [x; y; z]
   | LetTuple(xs, y, e) -> S.add y (S.diff (fv e) (S.of_list (List.map fst xs)))
   | ForLE(((i,a),(j,k),step),e1)->
-     (S.union (S.of_list [j;k]) (S.union (fv step) (fv e1)))
-                                
+     (S.union (S.of_list [i;j;k]) (S.union (fv step) (fv e1)))
+  |LetPara({pargs=xts;
+            index=(i,(j,k));    (* iは自由変数でない *)
+            accum=acc;
+            pbody=e1},e2) ->
+    let zs = S.diff (fv e1) (S.of_list (i::(List.map fst xts))) in    
+    (* S.union (S.of_list (List.map fst (List.concat acc))) *)
+            (S.union zs (fv e2))
+  |Run_parallel(a,d,xs,ys) ->
+    let ys' = List.map fst ys in
+    S.of_list (a::(d::(xs@ys')))
+  |Accum(x,n,z)->S.of_list [x;n;z]
+  
+
+       
+     
+let rec cons defs1 defs2 =
+  match defs1 with
+  |Let(xt,e1,e2) ->Let(xt,e1,cons e2 defs2)
+  |LetRec(fundef,e2)->LetRec(fundef,cons e2 defs2)
+  |LetTuple(xs,y,e2) ->LetTuple(xs,y,cons e2 defs2)
+  |Let_Ref(xt,e1,e2) ->Let_Ref(xt,e1,cons e2 defs2)
+  |LetPara(parallel,e2) ->LetPara(parallel,cons e2 defs2)
+  |Unit ->defs2
+  |e ->let dummy =Id.genid "unit" in
+       Let((dummy,Type.Unit),e,defs2)
+
 
 let insert_let (e, t) k = (* letを挿入する補助関数 (caml2html: knormal_insert) *)
   match e with
@@ -232,4 +270,4 @@ let rec g env = function (* K正規化ルーチン本体 (caml2html: knormal_g) *)
 	    (fun y -> insert_let (g env e3)
 		(fun z -> Put(x, y, z), Type.Unit)))
 
-let f e = fst (g M.empty e)
+let f e =fst (g M.empty e)

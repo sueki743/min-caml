@@ -49,10 +49,10 @@ let rec g rw_graph array_tree notW_hypothesis pre_written var_category trace e =
     (rw_graph , array_tree , hypo , VarCatego.Elm(a,n_position))
   |Ref_Get(a) when a= (!VarCatego.index_ref) ->(*index変数からget*)
     let pos = VarCatego.Ref in
-     let hypo=NotW_hypo.set_elm_ans (a,pos) notW_hypothesis in   
+    let hypo=NotW_hypo.set_elm_ans (a,pos) notW_hypothesis in   
     (rw_graph, array_tree,hypo, VarCatego.Index(0))
   |Ref_Get(a) ->
-    (* Format.eprintf "ref_get(%s)@." a; *)
+     (* Format.eprintf "ref_get(%s)@." a;  *)
      
     let a=Array_tree.find a array_tree in
     let position=VarCatego.Ref in
@@ -314,7 +314,7 @@ let rec g rw_graph array_tree notW_hypothesis pre_written var_category trace e =
       let fun_name_backup= !(VarCatego.fun_name) in
       (VarCatego.fun_name :=f);
        let (rw_g,array_t,hypo,ans)=
-        g rw_graph array_tree hypo_in_f pre_written var_catego_in_f trace e'
+        g rw_graph array_tree hypo_in_f pre_written var_catego_in_f M.empty e'
       in
       ( (* NotW_hypo.print ("solver_dist.256",VarCatego.Array(VarCatego.Int(0))) hypo;  *)
         (*  Format.eprintf "function_return    : %s@." f;    *)
@@ -355,6 +355,7 @@ let f global_regions constenv e=
     M.map (fun const ->Categorize.f array_tree M.empty M.empty const) constenv
   in
   let (rw_graph,array_tree,_,_)=
-   g Rw_g.empty array_tree NotW_hypo.empty [] var_category M.empty e in
+    g Rw_g.empty array_tree NotW_hypo.empty [] var_category M.empty e in
+  let rw_graph = Rw_g.add_dummy rw_graph in (* 末尾に空ノードを足す *)
   (rw_graph,array_tree)
 

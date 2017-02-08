@@ -50,6 +50,28 @@ let rec g env = function (* β簡約ルーチン本体 (caml2html: beta_g) *)
   | Ref_Put(x,y) ->Ref_Put(find x env,find y env)
   | ForLE(((i,a),(j,k),step),e) ->
      ForLE(((find i env,find a env),(find j env,find k env),g env step),g env e)
+  | LetPara({pargs=xts;
+             index =(i,(j,k))
+            ;accum=acc
+            ;pbody=e1},e2) ->
+     let acc'=List.map
+                (fun acum ->
+                  List.map
+                    (fun (a,pos) ->(find a env ,pos)) acum)
+                acc
+     in
+                
+     LetPara({pargs=xts;
+              index=(i,(j,k));
+              accum=acc';
+              pbody=g env e1},
+             g env e2)
+          
+  | Run_parallel (a,d,xs,ys)->
+     let ys'=List.map (fun (y,i) ->(find y env,i)) ys in
+     Run_parallel(find a env,find d env, (List.map (fun x ->find x env) xs),ys')
+  | Accum(a,n,x) ->
+     Accum(find a env,find n env,find x env)
           
 
 let f = g M.empty

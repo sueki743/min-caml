@@ -1,5 +1,6 @@
 
 type id_or_imm = V of Id.t | C of int
+val to_id_imm :Id.vc ->id_or_imm
 type t = (* 命令の列 (caml2html: sparcasm_t) *)
   | Ans of exp
   | Let of (Id.t * Type.t) * exp * t
@@ -48,11 +49,21 @@ type t = (* 命令の列 (caml2html: sparcasm_t) *)
   |Ref_Put of Id.t * Id.t
   |Ref_FGet of Id.t
   |Ref_FPut of Id.t * Id.t
+  |Run_parallel of Id.t*Id.t*Id.t list *Id.t list
+  |Next
+  |Acc of Id.t*Id.t
+            
+
+type parallel={pargs :Id.t  list;
+               pfargs:Id.t list;
+               index:(Id.t*(id_or_imm*id_or_imm)) ;
+               pbody : t 
+              }
                  
                  
 type fundef = { name : Id.l; args : Id.t list; fargs : Id.t list; body : t; ret : Type.t }
 (* プログラム全体 = 浮動小数点数テーブル + トップレベル関数 + メインの式 (caml2html: sparcasm_prog) *)
-type prog = Prog of (Id.l * float) list * fundef list * t
+type prog = Prog of (Id.l * float) list * fundef list *parallel option*t
 
 val fletd : Id.t * exp * t -> t (* shorthand of Let for float *)
 val seq : exp * t -> t (* shorthand of Let for unit *)
@@ -61,6 +72,11 @@ val regs : Id.t array
 val fregs : Id.t array
 val allregs : Id.t list
 val allfregs : Id.t list
+                    
+val acc1 :Id.t
+val acc2 :Id.t
+val acc3 :Id.t
+val allaccs:Id.t list
 val reg_zero : Id.t
 val reg_cl : Id.t
 val reg_sw : Id.t

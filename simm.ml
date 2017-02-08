@@ -39,7 +39,19 @@ and g' env = function (* 各命令の13bit即値最適化 (caml2html: simm13_gprime) *)
 
 let h { name = l; args = xs; fargs = ys; body = e; ret = t } = (* トップレベル関数の16bit即値最適化 *)
   { name = l; args = xs; fargs = ys; body = g M.empty e; ret = t }
+
+let i =function
+  |Some {pargs=xs;
+         pfargs=ys;
+         index=(i,(j',k'));
+         pbody=e} ->
+
+    Some {pargs=xs;
+          pfargs=ys;
+          index=(i,(j',k'));
+          pbody=g M.empty e}
+  |None ->None
                                         
     
-let f (Prog(data, fundefs, e)) = (* プログラム全体の13bit即値最適化 *)
-  Prog(data, List.map h fundefs, g M.empty e)
+let f (Prog(data, fundefs,parallel, e)) = (* プログラム全体の13bit即値最適化 *)
+  Prog(data, List.map h fundefs,i parallel, g M.empty e)

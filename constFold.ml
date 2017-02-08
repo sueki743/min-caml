@@ -57,6 +57,16 @@ let rec g env = function (* 定数畳み込みルーチン本体 (caml2html: constfold_g) *)
   | LetTuple(xts, y, e) -> LetTuple(xts, y, g env e)
   | Let_Ref(xt,e1,e2) ->Let_Ref(xt,g env e1,g env e2)
   | ForLE(cs,e) ->ForLE(cs,g env e)
+  | LetPara({pargs=xts;
+             index =cs
+            ;accum=acc
+            ;pbody=e1},e2) ->
+     LetPara({pargs=xts;
+              index =cs
+            ;accum=acc
+            ;pbody=g env e1},g env e2) 
+     
+     
   | e -> e
 
 let f = g M.empty

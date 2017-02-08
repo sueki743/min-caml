@@ -71,6 +71,26 @@ let rec g oc tree depth =
                        g oc funbody (depth+2);
                        fprintf oc "\n%*s>>\n" (depth+1) "";
                        g oc t1 depth
+  | LetPara({pargs = xts;
+             index =cs
+            ;accum=acc
+            ;pbody=e1},e2) ->
+     fprintf oc "LetPara\n";
+     fprintf oc "%*s" (depth+1) "";
+     fprintf oc "<< ";
+     fprintf oc "parallel_part";
+     
+     fprintf oc " | ";
+     List.iter (fun x ->print_id oc x  0) (List.map fst xts);
+     List.iter (fun (a,n) ->fprintf oc "%s(%d) "a n) (List.concat acc);
+     fprintf oc "|\n\n";
+     g oc  e1 (depth+2);
+     fprintf oc "\n%*s>>\n" (depth+1) "";
+     g oc e2 depth
+  |Run_parallel (a,d,xs,ys) ->fprintf oc "Run_parallel(%s,%s)\n" a d;
+                              List.iter (fun x ->print_id oc x (depth +1)) xs;
+                              let ys' = List.map fst ys in
+                              List.iter (fun x ->print_id oc x (depth+1)) ys'
   |App (t1,ts) -> fprintf oc "App\n";
                   List.iter (fun x ->print_id oc x (depth +1)) (t1::ts)
                   
@@ -112,5 +132,6 @@ let rec g oc tree depth =
     fprintf oc "%*s" depth "";fprintf oc "endforLE\n"
   |Ref_Get(t) ->fprintf oc "Ref_Get(%s)\n" t
   |Ref_Put(t1,t2) ->fprintf oc "Ref_Put(%s<-%s)\n" t1 t2
+  |Accum(a,n,x) ->fprintf oc "Accum(%s.(%s), %s" a n x
 
 let f oc tree=g oc tree 0;fprintf oc "\n\n\n\n\n" ;tree

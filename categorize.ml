@@ -35,12 +35,7 @@ let f array_tree var_category trace =function
      |_ ->
                VarCatego.Unknown)
   |Add(x,y)|FAdd(x,y)->
-    if(M.mem x trace||M.mem y trace) then
-      (
-        (* Format.eprintf "tarce_add!!!!!!!!!!!!!!!!!!!!!!!!!%s+%s@." x y; *)
-      VarCatego.Trace_add(x,y))
-    else
-      
+    let ans=
       let x'=find x var_category in
       let y'=find y var_category in
       (match (x',y') with
@@ -49,6 +44,23 @@ let f array_tree var_category trace =function
         |(VarCatego.Int(i),VarCatego.Index(j))->
          VarCatego.Index(i+j)
        |_ ->VarCatego.Unknown)
+    in
+    
+    if(M.mem x trace) then
+      (
+        if(M.mem y trace) then
+          if((M.find x trace)<>(M.find y trace)) then
+            VarCatego.Trace_add(x,y)
+          else
+            ans
+        else
+          VarCatego.Trace_add(x,y)
+      )
+    else if(M.mem y trace) then
+      VarCatego.Trace_add(x,y)
+    else
+      ans
+
   |Sub(x,y)|FSub(x,y) ->
     let x'=find x var_category in
     let y'=find y var_category in

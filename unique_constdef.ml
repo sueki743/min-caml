@@ -42,7 +42,6 @@ let rec g env const_var = function
 	  Let((x, t), g env const_var e1, g env const_var e2)
   | LetRec({ name = xt; args = yts; body = e1 }, e2) ->
      LetRec({ name = xt; args = yts; body = g M.empty [] e1 },
-            (*自由変数あったら問題*)
             g env const_var e2)
   | Var(x) -> Var(find x env)
   | Tuple(xs) -> Tuple(List.map (fun x -> find x env) xs)
@@ -59,6 +58,21 @@ let rec g env const_var = function
   | ForLE(((i,a),(j,k),step),e) ->
      ForLE(((find i env,find a env),(find j env,find k env),g env const_var step),
            g env const_var e)
+  | LetPara({pargs=xts;
+             index =cs
+            ;accum=acc
+            ;pbody=e1},e2) ->
+     LetPara({pargs=xts;
+              index=cs;
+              accum=acc;
+              pbody= e1},
+             g env const_var e2)
+            
+  |Run_parallel(a,d,xs,ys)->
+    let ys'=List.map (fun (y,i) ->(find y env,i)) ys in
+    Run_parallel(find a env,find d env,( List.map (fun x -> find x env) xs),ys')
+  |Accum(a,n,x) ->
+    Accum(find  a env,find n env,find x env)
           
 
   let f e = g M.empty [] e

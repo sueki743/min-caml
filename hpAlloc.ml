@@ -1,5 +1,3 @@
-
-
 type t = 
   | Unit
   | Int of int
@@ -41,8 +39,19 @@ type t =
   |Ref_Get of Id.t
   |Ref_Put of Id.t * Id.t
 
+  |LetPara of parallel * t
+  |Run_parallel of Id.t*Id.t*Id.t list*(Id.t*int) list
+  |Accum of Id.t*Id.t*Id.t
+                       
+
  and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 
+ and parallel ={pargs :(Id.t *Type.t) list;
+                index:(Id.t*(Id.vc*Id.vc)) ;
+                accum:(Id.t*int) list list ;
+                pbody : t }
+
+              
 type arraydef = {name :Id.l * Type.t;
                  size :int;
                  initv:t }
@@ -202,7 +211,18 @@ let rec g_unchange =function(*knormal.t->hpAlloc.t、そのまま変換*)
   | KNormal.ForLE((a,b,step),e) ->ForLE((a,b,g_unchange step),g_unchange e)
   | KNormal.Let_Ref(xt,e1,e2) ->Let_Ref(xt,g_unchange e1,g_unchange e2)
   | KNormal.Ref_Get(x) ->Ref_Get(x)
-  | KNormal.Ref_Put(x,y) ->Ref_Put(x,y)
+  | KNormal.Ref_Put(x,y) ->Ref_Put(x,y) 
+  | KNormal.LetPara({KNormal.pargs=xts;
+                     KNormal.index=(i,(j',k'));
+                     KNormal.accum=acc;
+                     KNormal.pbody=e1},e2) ->
+     LetPara({pargs=xts
+             ;index =(i,(j', k'))
+             ;accum=acc
+             ;pbody=g_unchange e1},g_unchange e2)
+  |KNormal.Run_parallel(a,d,xs,ys) ->Run_parallel(a,d,xs,ys)
+  |KNormal.Accum(a,n,x)->Accum(a,n,x)
+
 
 let not_changed_array =ref []
 
@@ -307,6 +327,16 @@ let rec g constenv = function
   | KNormal.Let_Ref(xt,e1,e2) ->Let_Ref(xt,g constenv e1,g constenv e2)
   | KNormal.Ref_Get(x) ->Ref_Get(x)
   | KNormal.Ref_Put(x,y) ->Ref_Put(x,y)
+  | KNormal.LetPara({KNormal.pargs=xts;
+                     KNormal.index=(i,(j',k'));
+                     KNormal.accum=acc;
+                     KNormal.pbody=e1},e2) ->
+     LetPara({pargs=xts
+             ;index =((i,(j',k')))
+             ;accum=acc
+             ;pbody=g_unchange e1},g constenv e2)
+  | KNormal.Run_parallel(a,d,xs,ys) ->not_changed_array:=[];Run_parallel(a,d,xs,ys)
+  | KNormal.Accum(a,n,x) ->Accum(a,n,x)            
 
 
 

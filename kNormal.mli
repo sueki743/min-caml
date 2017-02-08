@@ -1,3 +1,4 @@
+
 type t =
   | Unit
   | Int of int
@@ -38,7 +39,17 @@ type t =
   |Ref_Get of Id.t
   |Ref_Put of Id.t * Id.t
 
-and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
+  |LetPara of parallel*t
+  |Run_parallel of Id.t*Id.t*Id.t list*(Id.t*int) list
+  |Accum of Id.t*Id.t*Id.t
+                        
+ and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
+                
+ and parallel ={pargs:(Id.t*Type.t) list;
+                index:(Id.t*(Id.vc*Id.vc)) ;
+                accum:(Id.t*int)list list;
+                pbody : t }     (* 自由変数を解決するのはclosure.g *)
 
 val fv : t -> S.t
+val cons : t ->t->t
 val f : Syntax.t -> t

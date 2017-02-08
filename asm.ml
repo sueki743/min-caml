@@ -1,57 +1,70 @@
 
 type id_or_imm = V of Id.t | C of int
+let to_id_imm =function
+  |Id.V(x) ->V(x)
+  |Id.C(i) ->C(i)
 type t = (* 命令の列 (caml2html: sparcasm_t) *)
   | Ans of exp
   | Let of (Id.t * Type.t) * exp * t
    and exp = (* 一つ一つの命令に対応する式 論理演算なし//比較や分岐は後//addiとaddを分けるのも後 *)
    | Nop
    | Add of Id.t * id_or_imm
-  | Sub of Id.t * id_or_imm
-  | Mul of Id.t * Id.t
-  | Div of Id.t * Id.t
-  | Or of Id.t * Id.t
-  | SLL of Id.t * int
-  | SRL of Id.t * int
-  | SRA of Id.t * int
-  | Lw of int * Id.t
-  | Lui of int
-  | La of Id.l
-  | Sw of Id.t *int * Id.t
-  | FLw of  int * Id.t
-  | FSw of Id.t * int * Id.t
-  | FAdd of Id.t * Id.t
-  | FSub of Id.t * Id.t
-  | FMul of Id.t * Id.t
-  | FDiv of Id.t * Id.t
-  | FMov of Id.t
-  | FNeg of Id.t
-  | Ftoi of Id.t
-  | Itof of Id.t
-  | FAbs of Id.t 
-  | FSqrt of Id.t
-  | In
-  | Out of Id.t
-  | Comment of string
-  (* virtual instructions *)
-  | IfEq of Id.t * id_or_imm * t * t
-  | IfLE of Id.t * id_or_imm * t * t
-  | IfGE of Id.t * id_or_imm * t * t (* 左右対称ではないので必要 *)
-  | IfFEq of Id.t * Id.t * t * t
-  | IfFLE of Id.t * Id.t * t * t
-  (* closure address, integer arguments, and float arguments *)
-  | CallCls of Id.t * Id.t list * Id.t list
-  | CallDir of Id.l * Id.t list * Id.t list
-  | Save of Id.t * Id.t (* レジスタ変数の値をスタック変数へ保存 (caml2html: sparcasm_save) *)
-  | Restore of Id.t (* スタック変数から値を復元 (caml2html: sparcasm_restore) *)
-  |ForLE of ((Id.t* id_or_imm) * (id_or_imm * id_or_imm) * t) *t
-  |Ref_Get of Id.t
-  |Ref_Put of Id.t * Id.t
-  |Ref_FGet of Id.t
-  |Ref_FPut of Id.t * Id.t
+   | Sub of Id.t * id_or_imm
+   | Mul of Id.t * Id.t
+   | Div of Id.t * Id.t
+   | Or of Id.t * Id.t
+   | SLL of Id.t * int
+   | SRL of Id.t * int
+   | SRA of Id.t * int
+   | Lw of int * Id.t
+   | Lui of int
+   | La of Id.l
+   | Sw of Id.t *int * Id.t
+   | FLw of  int * Id.t
+   | FSw of Id.t * int * Id.t
+   | FAdd of Id.t * Id.t
+   | FSub of Id.t * Id.t
+   | FMul of Id.t * Id.t
+   | FDiv of Id.t * Id.t
+   | FMov of Id.t
+   | FNeg of Id.t
+   | Ftoi of Id.t
+   | Itof of Id.t
+   | FAbs of Id.t 
+   | FSqrt of Id.t
+   | In
+   | Out of Id.t
+   | Comment of string
+   (* virtual instructions *)
+   | IfEq of Id.t * id_or_imm * t * t
+   | IfLE of Id.t * id_or_imm * t * t
+   | IfGE of Id.t * id_or_imm * t * t (* 左右対称ではないので必要 *)
+   | IfFEq of Id.t * Id.t * t * t
+   | IfFLE of Id.t * Id.t * t * t
+   (* closure address, integer arguments, and float arguments *)
+   | CallCls of Id.t * Id.t list * Id.t list
+   | CallDir of Id.l * Id.t list * Id.t list
+   | Save of Id.t * Id.t (* レジスタ変数の値をスタック変数へ保存 (caml2html: sparcasm_save) *)
+   | Restore of Id.t (* スタック変数から値を復元 (caml2html: sparcasm_restore) *)
+   |ForLE of ((Id.t* id_or_imm) * (id_or_imm * id_or_imm) * t) *t
+   |Ref_Get of Id.t
+   |Ref_Put of Id.t * Id.t
+   |Ref_FGet of Id.t
+   |Ref_FPut of Id.t * Id.t
+   |Run_parallel of Id.t*Id.t*Id.t list *Id.t list
+   |Next
+   |Acc of Id.t*Id.t
+
+
+type parallel={pargs :Id.t  list;
+               pfargs:Id.t list;
+               index:(Id.t*(id_or_imm*id_or_imm)) ;
+               pbody : t ;
+              }
 
 type fundef = { name : Id.l; args : Id.t list; fargs : Id.t list; body : t; ret : Type.t }
 (* プログラム全体 = 浮動小数点数テーブル + トップレベル関数 + メインの式 (caml2html: sparcasm_prog) *)
-type prog = Prog of (Id.l * float) list * fundef list * t
+type prog = Prog of (Id.l * float) list * fundef list *parallel option * t
 
 let fletd(x, e1, e2) = Let((x, Type.Float), e1, e2)
 let seq(e1, e2) = Let((Id.gentmp Type.Unit, Type.Unit), e1, e2)
@@ -60,9 +73,14 @@ let regs =  Array.init 27 (fun i -> Printf.sprintf "%%r%d" (i+1))
   (*[| "%i2"; "%i3"; "%i4"; "%i5";
      "%l0"; "%l1"; "%l2"; "%l3"; "%l4"; "%l5"; "%l6"; "%l7";
      "%o0"; "%o1"; "%o2"; "%o3"; "%o4"; "%o5" |]*)
-let fregs = Array.init 32 (fun i -> Printf.sprintf "%%f%d" i)
+let fregs = Array.init 29 (fun i -> Printf.sprintf "%%f%d" i)
 let allregs = Array.to_list regs
 let allfregs = Array.to_list fregs
+let acc1 = "%f29"
+let acc2 = "%f30"
+let acc3 = "%f31"
+let allaccs = [acc1;acc2;acc2]
+             
 let reg_cl = regs.(Array.length regs - 1)(* closure address (caml2html: sparcasm_regcl) *)
 let reg_sw = "%r28"
 let reg_fsw = fregs.(Array.length fregs - 1) (* temporary for swap *)
@@ -110,6 +128,9 @@ let rec fv_exp = function
      remove_and_uniq
        S.empty
        ((fv_id_or_imm j')@((fv_id_or_imm k')@((fv step)@(fv e1))))
+  |Next ->[]
+  |Acc(x,y) ->[x;y]
+  |Run_parallel(a,d,xs,ys) ->a::(d::(xs@ys))
 
                              
                              

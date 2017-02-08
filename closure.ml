@@ -40,17 +40,25 @@ type t = (* クロージャ変換後の式 (caml2html: closure_t) *)
   |Ref_Get of Id.t
   |Ref_Put of Id.t * Id.t
 
-
+  |Run_parallel of Id.t*Id.t*Id.t list*(Id.t*int) list
+  |Accum of Id.t *Id.t*Id.t
 
 type fundef = { name : Id.l * Type.t;
 		args : (Id.t * Type.t) list;
 		formal_fv : (Id.t * Type.t) list;
 		body : t }
+
+type parallel ={pargs :(Id.t *Type.t) list;
+                index:(Id.t*(Id.vc*Id.vc)) ;
+                accum:(Id.t*int) list  list ;
+                pbody : t }
+
                 
 
-type prog = Prog of (fundef list) * t
+type prog = Prog of (fundef list) *(parallel list)* t
 
 let toplevel : fundef list ref = ref []
+let parallel_part : parallel list ref =ref []
                                       
 let rec fv = function
   | Unit | Int(_) | Float(_) | ExtArray(_)|ConstArray(_)|ConstTuple(_) -> S.empty
@@ -69,6 +77,10 @@ let rec fv = function
   | FAbs (x) |FSqrt (x) ->S.of_list [x]
   | ForLE(((i,a),(j,k),step),e1)->
      S.union (S.of_list [j;k]) (S.union (fv step) (fv e1))
+  | Run_parallel(a,d,xs,ys) ->
+     let ys'=List.map fst ys in
+     S.of_list (a::((d::xs)@ys'))
+  | Accum(a,n,x) ->S.of_list [a;n;x]
      
                                       
                                     
@@ -115,7 +127,7 @@ let rec insert_const constenv = function
                           Let((x,t),const,exp))
              const_set
              e
-    
+let added_args = ref []    
                                      
 let rec eval constenv = function(*定数なら値を評価*)
   |Unit|Int(_)|Float(_)|ConstTuple(_)|ConstArray(_) as const ->
@@ -230,6 +242,8 @@ let rec eval constenv = function(*定数なら値を評価*)
   |Let_Ref((x,t),_,e2) ->eval constenv e2
   |_ ->None
 
+
+
 and g env constenv known = function (* クロージャ変換ルーチン本体 (caml2html: closure_g) *)
   (*env      :変数->型　の環境
 　　constenv :定数変数->(定数(colosure.t),型)　の環境
@@ -254,6 +268,7 @@ and g env constenv known = function (* クロージャ変換ルーチン本体 (caml2html: cl
   | HpAlloc.Read_int(x)->Read_int(x)
   | HpAlloc.Read_float(x)->Read_float(x)
   | HpAlloc.Print_char(x)->Print_char(x)
+  | HpAlloc.Accum(a,n,x) ->Accum(a,n,x)
   | HpAlloc.IfEq(x, y, e1, e2) -> IfEq(x, y, g env constenv known e1, g env constenv known e2)
   | HpAlloc.IfLE(x, y, e1, e2) -> IfLE(x, y, g env constenv known e1, g env constenv known e2)
   | HpAlloc.Let((x, t),e1, e2) ->
@@ -333,11 +348,51 @@ and g env constenv known = function (* クロージャ変換ルーチン本体 (caml2html: cl
      Let_Ref((x,t),g env constenv known e1,g (M.add x t env) constenv known e2)
   | HpAlloc.Ref_Get(x) ->Ref_Get(x)
   | HpAlloc.Ref_Put(x,y)->Ref_Put(x,y)
+  | HpAlloc.LetPara({HpAlloc.pargs=xts;
+                     HpAlloc.index=(i,(j,k));
+                     HpAlloc.accum=acc;
+                     HpAlloc.pbody=e1},
+                    e2) ->
+     (* let find_int x constenv = *)
+     (*   match M.find x constenv with Int(i) ->i|_ ->assert false in *)
+     (* j,k,dが引数になるか、ならないか *)
+     (* let const_jkd,notC_jkd=List.partition (fun x ->M.mem x constenv) [j;k;d] in *)
+     (* let arg_ajkd=if(List.mem a notC_jkd)then *)
+     (*                List.filter (fun x ->x<>i) notC_ajkd *)
+     (*              else *)
+     (*                a::(List.filter (fun x ->x<>i) notC_ajkd) in *)
+     (* let j'=if j=i||(not(List.mem j const_jkd)) then V(j) *)
+     (*        else C(find_int j constenv) in *)
+     (* let k'=if k=i||(not(List.mem k const_jkd)) then V(k) *)
+     (*        else C(find_int k constenv) in *)
+     (* let d'=if (not(List.mem d const_jkd)) then V(d) *)
+     (*        else C(find_int d constenv) in *)
+     let e1' = g env constenv known e1 in
+     let e1' = insert_const constenv e1' in
+     let xs = List.map fst xts in
+     let zs =                   (* 自由変数 *)
+       S.elements (S.diff (fv e1') (S.of_list (i::xs))) in
+     let zts = List.map (fun z -> (z, M.find z env)) zs in
+     (* let arg_ajkd'=List.map (fun z ->(z,M.find z env)) arg_ajkd in *)
+     let parallel={pargs=xts@zts;
+                   index=(i,(j,k));
+                   accum=acc;
+                   pbody=e1'}
+     in
+     added_args:=zts;
+     parallel_part:=parallel::(!parallel_part);
+     g env constenv known e2
+  |HpAlloc.Run_parallel (a,d,xs,ys)->
+    (assert ((List.length (!parallel_part))=1);
+    let zts= !added_args in
+    let zs = List.map fst zts in
+    Run_parallel(a,d,xs@zs,ys))        (* 仮引数として追加されたものを、追加 *)
      
-
-
-                                       
+     
+     
+     
+     
 let f e =
   toplevel := [];
   let e' = g M.empty M.empty S.empty e in
-  Prog(List.rev !toplevel, e')
+  Prog(List.rev !toplevel, !parallel_part,e')
