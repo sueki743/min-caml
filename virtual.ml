@@ -31,53 +31,6 @@ let expand xts ini addf addi =
     (fun (offset, acc) x t ->
       (offset + 1, addi x t offset acc))
 
-let read_int_virtual () =
-  let x1 = Id.genid "x" in
-  let x2 = Id.genid "x" in
-  let x3 = Id.genid "x" in
-  let y1 = Id.genid "y" in
-  let y2 = Id.genid "y" in
-  let y3 = Id.genid "y" in
-  let y4 = Id.genid "y" in
-  let y5 = Id.genid "y" in
-  let y6 = Id.genid "y" in
-  Let((x1,Type.Int),In,
-      (Let((y1,Type.Int),In,
-           (Let((y2,Type.Int),SLL(y1,8),
-                (Let((x2,Type.Int),Or(x1,y2),
-                     (Let((y3,Type.Int),In,
-                          (Let((y4,Type.Int),SLL(y3,16),
-                               (Let((x3,Type.Int),Or(x2,y4),
-                                    (Let((y5,Type.Int),In,
-                                         (Let((y6,Type.Int),SLL(y5,24),
-                                              (Ans(Or(y6,x3))))))))))))))))))))
-
-let read_float_virtual () =
-  let x1 = Id.genid "x" in
-  let x2 = Id.genid "x" in
-  let x3 = Id.genid "x" in
-  let x4 = Id.genid "x" in
-  let y1 = Id.genid "y" in
-  let y2 = Id.genid "y" in
-  let y3 = Id.genid "y" in
-  let y4 = Id.genid "y" in
-  let y5 = Id.genid "y" in
-  let y6 = Id.genid "y" in
-  let dummy= Id.genid "unit" in
-  Let((x1,Type.Int),In,
-      (Let((y1,Type.Int),In,
-           (Let((y2,Type.Int),SLL(y1,8),
-                (Let((x2,Type.Int),Or(x1,y2),
-                     (Let((y3,Type.Int),In,
-                          (Let((y4,Type.Int),SLL(y3,16),
-                               (Let((x3,Type.Int),Or(x2,y4),
-                                    (Let((y5,Type.Int),In,
-                                         (Let((y6,Type.Int),SLL(y5,24),
-                                              (Let((x4,Type.Int),Or(y6,x3),
-                                                   (Let((dummy,Type.Unit),Sw(x4,0,reg_hp),
-                                                        (Ans(FLw(0,reg_hp))))))))))))))))))))))))
-
-let print_char_virtual x =Ans(Out(x))
   
 
 let parallel_mode = ref false
@@ -88,7 +41,7 @@ let parallel_acc2array = ref []
   
 let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml2html: virtual_g) *)
   | Closure.Unit -> Ans(Nop)
-  | Closure.Int(i) -> Ans(Add(reg_zero,C(i)))
+  | Closure.Int(i) -> Ans(Movi(i))
   | Closure.Float(d) ->
       let l =
 	try
@@ -101,10 +54,12 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
 	  l
       in
       let x = Id.genid "l" in
-      Let((x, Type.Int), La(l), Ans(FLw(0, x)))(*１段に出来そう->出来ない*)
-  | Closure.Neg(x) -> Ans(Sub(reg_zero, V (x)))
+      Let((x, Type.Int), Lwi(l), Ans(FLw(0, x)))(*１段に出来そう->出来ない*)
+  | Closure.Neg(x) ->let zero = Id.genid "zero" in
+                     Let((zero,Type.Int),Movi(0),
+                         Ans(Sub(zero,x)))
   | Closure.Add(x, y) -> Ans(Add(x, V(y)))
-  | Closure.Sub(x, y) -> Ans(Sub(x, V(y)))
+  | Closure.Sub(x, y) -> Ans(Sub(x, y))
   | Closure.Mul(x, y) -> Ans(Mul(x,y))
   | Closure.Div(x, y) -> Ans(Div(x,y))
   | Closure.FNeg(x) -> Ans(FNeg(x))
@@ -116,13 +71,33 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
   | Closure.Itof(x) -> Ans(Itof (x))
   | Closure.FAbs(x) ->Ans(FAbs(x))
   | Closure.FSqrt(x) ->Ans(FSqrt(x))
-  | Closure.Read_int(x) ->read_int_virtual ()(*xはunitなので無視*)
-  | Closure.Read_float(x) ->read_float_virtual () (*xはunitなので無視*)
-  | Closure.Print_char(x) ->print_char_virtual x
+  | Closure.Read_int(x) -> Ans(In)
+  | Closure.Read_float(x) ->Ans(FIn)
+  | Closure.Print_char(x) ->Ans(Out(x))
   | Closure.IfEq(x, y, e1, e2) ->
       (match M.find x env with
       | Type.Bool | Type.Int -> Ans(IfEq(x, V(y), g env constenv e1, g env constenv e2))
-      | Type.Float -> Ans(IfFEq(x, y, g env constenv e1, g env constenv e2))
+      | Type.Float ->
+         if(M.mem x constenv)then
+           let x_v = find_float x constenv in
+           if(x_v=0.0)then
+             Ans(IfFZ(y,g env constenv e1,g env constenv e2))
+           else
+             let diff = Id.genid "diff" in
+             Let((diff,Type.Int),FSub(x,y),
+                 (Ans(IfFZ(diff,g env constenv e1,g env constenv e2))))
+         else if(M.mem y constenv)then
+           let x_v = find_float x constenv in
+           if(x_v=0.0)then
+             Ans(IfFZ(y,g env constenv e1,g env constenv e2))
+           else
+             let diff = Id.genid "diff" in
+             Let((diff,Type.Int),FSub(x,y),
+                 Ans(IfFZ(diff,g env constenv e1,g env constenv e2)))
+         else
+           let diff = Id.genid "diff" in
+           Let((diff,Type.Int),FSub(x,y),
+               Ans(IfFZ(diff,g env constenv e1,g env constenv e2)))
       | _ -> failwith "equality supported only for bool, int, and float")
   | Closure.IfLE(x, y, e1, e2) ->
       (match M.find x env with
@@ -153,7 +128,7 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
      (match M.find x env with
       | Type.Unit -> Ans(Nop)
       | Type.Float -> Ans(FMov(x))
-      | _ -> Ans(Add(x,C(0))))
+      | _ -> Ans(Mov(x)))
   | Closure.MakeCls((x, t), { Closure.entry = l; Closure.actual_fv = ys }, e2) -> (* クロージャの生成 (caml2html: virtual_makecls) *)
       (* Closureのアドレスをセットしてから、自由変数の値をストア *)
       let e2' = g (M.add x t env) constenv e2 in
@@ -166,7 +141,7 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
       Let((x, t), Add(reg_hp,C(0)),
 	  Let((reg_hp, Type.Int), Add(reg_hp, C(offset)),
 	      let z = Id.genid "l" in(*zにラベルのアドレスを入れる*)
-	      Let((z, Type.Int), La(l),
+	      Let((z, Type.Int), Lwi(l),
 		  seq(Sw(z, 0, x),(*ラベルの値をx参照先に保存*)
 		      store_fv))))
   | Closure.AppCls(x, ys) ->
@@ -180,14 +155,24 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
      let load2acc=
        List.fold_left
          (fun load (acc,(a,i)) ->
-           Let((acc,(Type.Float)),(FLw(i,a)),load))
+           try
+             let const=find_array a constenv in
+             Let((acc,Type.Float),FLwi(i,const),load)
+           with
+             Not_found ->
+             Let((acc,(Type.Float)),(FLw(i,a)),load))
          (Ans(Nop))
-         (!parallel_acc2array)
+         (!parallel_acc2array)  (*=ysのはず  *)
      in
      let store2acc=
        List.fold_left
          (fun store (acc,(a,i)) ->
-           seq(FSw(acc,i,a),store))
+           try
+             let const = find_array a constenv in
+             seq(FSwi(acc,i,const),store)
+           with
+             Not_found ->
+             seq(FSw(acc,i,a),store))
          (Ans(Nop))
          !parallel_acc2array
      in
@@ -206,7 +191,22 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
 	  Let((reg_hp, Type.Int), Add(reg_hp, C( offset)),
 	      store))
   (*ヒープレジスタをoffset分伸ばして、yに組の先頭に入れてstoreする*)
-  | Closure.ConstTuple(l) ->Ans(La(l))
+  | Closure.ConstTuple(l) ->Ans(Lwi(0,l))
+  | Closure.LetTuple(xts, y ,e2) when M.mem y constenv ->
+     let s = Closure.fv e2 in
+     let const = find_array y constenv in
+      let (offset, load) =
+	expand
+	  xts
+	  (0, g (M.add_list xts env) constenv e2)(*変数の型さえ分かれば、コードが作れる*)
+	  (fun x offset load ->
+	    if not (S.mem x s) then load else (* [XX] a little ad hoc optimization *)
+	      fletd(x, FLwi(offset, const), load))(*fletdは無害*)
+	  (fun x t offset load ->
+	    if not (S.mem x s) then load else (* [XX] a little ad hoc optimization *)
+	    Let((x, t), Lwi(offset,const), load)) in
+      load
+     
   | Closure.LetTuple(xts, y, e2) ->
       let s = Closure.fv e2 in
       let (offset, load) =

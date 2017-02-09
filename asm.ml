@@ -6,40 +6,47 @@ let to_id_imm =function
 type t = (* 命令の列 (caml2html: sparcasm_t) *)
   | Ans of exp
   | Let of (Id.t * Type.t) * exp * t
-   and exp = (* 一つ一つの命令に対応する式 論理演算なし//比較や分岐は後//addiとaddを分けるのも後 *)
+ and exp = (* 一つ一つの命令に対応する式 論理演算なし//比較や分岐は後//addiとaddを分けるのも後 *)
    | Nop
+   | Mov of Id.t
+   | Movi of int
    | Add of Id.t * id_or_imm
-   | Sub of Id.t * id_or_imm
+   | Sub of Id.t * Id.t
    | Mul of Id.t * Id.t
    | Div of Id.t * Id.t
-   | Or of Id.t * Id.t
-   | SLL of Id.t * int
+   | SLL of Id.t * int          (* sl2へはemitで変換 *)
    | SRL of Id.t * int
    | SRA of Id.t * int
-   | Lw of int * Id.t
-   | Lui of int
-   | La of Id.l
-   | Sw of Id.t *int * Id.t
-   | FLw of  int * Id.t
-   | FSw of Id.t * int * Id.t
+
    | FAdd of Id.t * Id.t
    | FSub of Id.t * Id.t
    | FMul of Id.t * Id.t
    | FDiv of Id.t * Id.t
    | FMov of Id.t
    | FNeg of Id.t
-   | Ftoi of Id.t
-   | Itof of Id.t
    | FAbs of Id.t 
    | FSqrt of Id.t
+   (* メモリアクセス *)
+   | Lw of int * Id.t
+   | Lwi of int * Id.l
+   | FLw of  int * Id.t
+   | FLwi of int*Id.l
+   | Sw of Id.t *int * Id.t 
+   | Swi of Id.t *int* Id.l
+   | FSw of Id.t * int * Id.t
+   | FSwi of Id.t *int* Id.l
+                      
+   | Ftoi of Id.t
+   | Itof of Id.t
    | In
+   | FIn
    | Out of Id.t
    | Comment of string
    (* virtual instructions *)
    | IfEq of Id.t * id_or_imm * t * t
-   | IfLE of Id.t * id_or_imm * t * t
-   | IfGE of Id.t * id_or_imm * t * t (* 左右対称ではないので必要 *)
-   | IfFEq of Id.t * Id.t * t * t
+   | IfLE of Id.t * id_or_imm * t * t (* ifge消去*)
+
+   | IfFZ of  Id.t * t * t      (* 0との比較 *)
    | IfFLE of Id.t * Id.t * t * t
    (* closure address, integer arguments, and float arguments *)
    | CallCls of Id.t * Id.t list * Id.t list
@@ -69,7 +76,7 @@ type prog = Prog of (Id.l * float) list * fundef list *parallel option * t
 let fletd(x, e1, e2) = Let((x, Type.Float), e1, e2)
 let seq(e1, e2) = Let((Id.gentmp Type.Unit, Type.Unit), e1, e2)
 
-let regs =  Array.init 27 (fun i -> Printf.sprintf "%%r%d" (i+1)) 
+let regs =  Array.init 29 (fun i -> Printf.sprintf "%%r%d" i) 
   (*[| "%i2"; "%i3"; "%i4"; "%i5";
      "%l0"; "%l1"; "%l2"; "%l3"; "%l4"; "%l5"; "%l6"; "%l7";
      "%o0"; "%o1"; "%o2"; "%o3"; "%o4"; "%o5" |]*)
@@ -82,12 +89,10 @@ let acc3 = "%f31"
 let allaccs = [acc1;acc2;acc3]
              
 let reg_cl = regs.(Array.length regs - 1)(* closure address (caml2html: sparcasm_regcl) *)
-let reg_sw = "%r28"
+let reg_sw = "%r29"
 let reg_fsw = fregs.(Array.length fregs - 1) (* temporary for swap *)
 let reg_sp = "%r30" (* stack pointer *)
-let reg_hp = "%r29" (* heap pointer (caml2html: sparcasm_reghp) *)
-let reg_ra = "%r31" (* return address *)
-let reg_zero = "%r0" 
+let reg_hp = "%r31" (* heap pointer *)
 let is_reg x = (x.[0] = '%')
 
 
@@ -113,26 +118,62 @@ let rec remove_and_uniq xs = function
 (* free variables in the order of use (for spilling) (caml2html: sparcasm_fv) *)
 let fv_id_or_imm = function V(x) -> [x] | _ -> []
 let rec fv_exp = function
-  |Nop|La _| Comment(_) | Restore(_)|In|Lui _  -> []
-  |FNeg (x)|FMov (x)| Save(x, _)|SLL(x,_)|SRL(x,_)|SRA(x,_)|Lw(_,x)|FLw(_,x)
-   |Out(x)|Ref_Get(x)|Ref_FGet(x)-> [x]
-  | Add(x, y') | Sub(x, y')   -> x :: fv_id_or_imm y'
-  | Mul(x,y)|Div(x,y) | FAdd(x, y) | FSub(x, y) | FMul(x, y)|FDiv (x, y) |Sw(x,_,y)|FSw(x,_,y)|Or(x,y)|Ref_Put(x,y)|Ref_FPut(x,y) -> [x; y]
-  | IfEq(x, y', e1, e2) | IfLE(x, y', e1, e2) | IfGE(x, y', e1, e2) -> x :: fv_id_or_imm y' @ remove_and_uniq S.empty (fv e1 @ fv e2) (* uniq here just for efficiency *)
-  | IfFEq(x, y, e1, e2) | IfFLE(x, y, e1, e2) -> x :: y :: remove_and_uniq S.empty (fv e1 @ fv e2) (* uniq here just for efficiency *)
-  | CallCls(x, ys, zs) -> x :: ys @ zs
-  | CallDir(_, ys, zs) -> ys @ zs
-  | Ftoi (x) |Itof (x) -> [x]
-  | FAbs (x) |FSqrt (x) -> [x]
-  | ForLE(((i,a'),(j',k'),step),e1)->
-     remove_and_uniq
-       S.empty
-       ((fv_id_or_imm j')@((fv_id_or_imm k')@((fv step)@(fv e1))))
-  |Next ->[]
-  |Acc(x,y) ->[x;y]
-  |Run_parallel(a,d,xs,ys) ->a::(d::(xs@ys))
+  | Nop ->[]
+  | Mov(x) -> [x]
+  | Movi _ ->[]
+  | Add(x,y') ->x::fv_id_or_imm y'
+  | Sub(x,y) ->[x;y]
+  | Mul(x,y) ->[x;y]
+  | Div(x,y) ->[x;y]
+  | SLL(x,_) ->[x]
+  | SRL(x,_) ->[x]
+  | SRA(x,_) ->[x]
 
-                             
+   | FAdd(x,y) ->[x;y]
+   | FSub(x,y) ->[x;y]                   
+   | FMul(x,y) ->[x;y]
+   | FDiv(x,y) ->[x;y]
+   | FMov(x) ->[x]
+   | FNeg(x) ->[x]
+   | FAbs(x) ->[x]
+   | FSqrt(x) ->[x]                 
+   (* メモリアクセス *)
+   | Lw(_,x) ->[x]
+   | Lwi _ ->[]
+   | FLw(_,x) ->[x]
+   | FLwi _ ->[]
+   | Sw(x,_,y) ->[x;y]
+   | Swi(x,_,_) ->[x]
+   | FSw(x,_,y) ->[x;y]
+   | FSwi(x,_,_) ->[x]
+                      
+   | Ftoi(x) ->[x]
+   | Itof(y) ->[y]
+   | In ->[]
+   | FIn ->[]
+   | Out(x) ->[x]
+   | Comment _ ->[]
+   (* virtual instructions *)
+   | IfEq(x,y',e1,e2)|IfLE(x,y',e1,e2) ->
+      x::fv_id_or_imm y' @remove_and_uniq S.empty (fv e1 @ fv e2)
+   | IfFZ(x,e1,e2)->
+      x:: remove_and_uniq S.empty (fv e1 @ fv e2)
+   | IfFLE(x,y,e1,e2) ->
+      x::(y::remove_and_uniq S.empty (fv e1 @ fv e2))
+   (* closure address, integer arguments, and float arguments *)
+   | CallCls(x,ys,zs) ->x :: ys@zs
+   | CallDir(_,ys,zs) ->ys@zs
+   | Save(x,_) ->[x]
+   | Restore _ ->[]
+   | ForLE(((i,a'),(j',k'),step),e1)->
+      remove_and_uniq
+        S.empty
+        ((fv_id_or_imm j')@((fv_id_or_imm k')@((fv step)@(fv e1))))
+   |Ref_Get(x)|Ref_FGet(x) ->[x]
+   |Ref_Put(x,y)|Ref_FPut(x,y) ->[x;y]
+   |Run_parallel(a,d,xs,ys) ->a::(d::(xs@ys))                                   
+   |Next ->[]
+   |Acc(x,y) ->[x;y]
                              
 and fv = function
   | Ans(exp) -> fv_exp exp
@@ -179,14 +220,10 @@ and remove_exp' exp = function
     let e1',removed1=remove_exp exp e1 in
     let e2',removed2=remove_exp exp e2 in
     (IfLE(i,j,e1',e2'),removed1||removed2)
-  |IfGE(i,j,e1,e2) ->
+  |IfFZ(i,e1,e2) ->
     let e1',removed1=remove_exp exp e1 in
     let e2',removed2=remove_exp exp e2 in
-    (IfGE(i,j,e1',e2'),removed1||removed2)
-  |IfFEq(i,j,e1,e2) ->
-    let e1',removed1=remove_exp exp e1 in
-    let e2',removed2=remove_exp exp e2 in
-    (IfFEq(i,j,e1',e2'),removed1||removed2)
+    (IfFZ(i,e1',e2'),removed1||removed2)
   |IfFLE(i,j,e1,e2) ->
     let e1',removed1=remove_exp exp e1 in
     let e2',removed2=remove_exp exp e2 in
@@ -220,14 +257,10 @@ and remove_allexp' exp = function
     let e1'=remove_allexp exp e1 in
     let e2'=remove_allexp exp e2 in
     IfLE(i,j,e1',e2')
-  |IfGE(i,j,e1,e2) ->
+  |IfFZ(i,e1,e2) ->
     let e1'=remove_allexp exp e1 in
     let e2'=remove_allexp exp e2 in
-    IfGE(i,j,e1',e2')
-  |IfFEq(i,j,e1,e2) ->
-    let e1'=remove_allexp exp e1 in
-    let e2'=remove_allexp exp e2 in
-    IfFEq(i,j,e1',e2')
+    IfFZ(i,e1',e2')
   |IfFLE(i,j,e1,e2) ->
     let e1'=remove_allexp exp e1 in
     let e2'=remove_allexp exp e2 in
