@@ -804,7 +804,7 @@ let i =function
          pbody=e
         } ->
     save_ref:=[];
-    let ref_env = M.add index regs.(0) (M.empty) in
+
     let (i, arg_regs, regenv) =
       List.fold_left
         (fun (i, arg_regs, regenv) y ->
@@ -825,6 +825,7 @@ let i =function
 	    M.add z fr regenv)))
         (0, [], regenv)
         ys in
+    let ref_env = M.add index regs.(i) (M.empty) in
     let index_regs=(find_ref index (Type.Ref (Type.Int)) ref_env,
                     ((if j'=V(index) then
                         V(find_ref index (Type.Ref(Type.Int)) ref_env)
