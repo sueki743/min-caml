@@ -500,12 +500,17 @@ let f oc oc_childe (Prog(data, fundefs,parallel, e)) =
   Printf.fprintf oc "min_caml_start:\n";
   stackset := M.empty;
   stackmap := [];
+  print_parallel oc parallel;
+  List.iter (fun fundef -> h oc fundef) fundefs;
+  Printf.fprintf oc "entry_point:\n";
+  stackset := M.empty;
+  stackmap := [];
   g oc (Ans(Nop)) (NonTail(regs.(0)), e);
   Printf.fprintf oc "\tin\t%%r1\n";
-  Printf.fprintf oc "\tj\tmin_caml_start\n";
-  List.iter (fun fundef -> h oc fundef) fundefs;
+  Printf.fprintf oc "\tj\tmin_caml_start\n"
 
   (* 以下子コア用のコード *)
+(*
   Printf.fprintf oc_childe  ".section\t\".rodata\"\n";
   Printf.fprintf oc_childe ".align\t8\n";
   List.iter
@@ -526,3 +531,4 @@ let f oc oc_childe (Prog(data, fundefs,parallel, e)) =
   stackmap := [];
   print_parallel oc_childe parallel;
   List.iter (fun fundef -> h oc_childe fundef) fundefs
+*)
