@@ -31,8 +31,30 @@ let expand xts ini addf addi =
     (fun (offset, acc) x t ->
       (offset + 1, addi x t offset acc))
 
-  
+let find_float x constenv =
+  try
+(match M.find x constenv with
+ |Closure.Float(d),_ ->d
+ | _ ->assert false)
+  with
+    Not_found ->assert false
 
+let find_array x constenv =
+  try 
+    (match M.find x constenv with
+  |Closure.ConstArray(l),_ ->l
+  |_ ->assert false)
+  with
+    Not_found ->assert false
+
+let find_tuple x constenv =
+  try
+    (match M.find x constenv with
+  |Closure.ConstTuple(l),_ ->l
+  |_ ->assert false
+    )
+  with
+    Not_found ->assert false
 let parallel_mode = ref false
 let dummy=Id.genid "dummy"
 let parallel_index =ref dummy
@@ -49,12 +71,11 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
 	  let (l, _) = List.find (fun (_, d') -> d = d') !data in
 	  l
 	with Not_found ->
-	  let l = Id.L(Id.genid "l") in
+	  let l = Id.L(Id.genid "flaot") in
 	  data := (l, d) :: !data;
 	  l
       in
-      let x = Id.genid "l" in
-      Let((x, Type.Int), Lwi(l), Ans(FLw(0, x)))(*１段に出来そう->出来ない*)
+       Ans(FLwi(0,l))(*１段に出来そう->出来ない*)
   | Closure.Neg(x) ->let zero = Id.genid "zero" in
                      Let((zero,Type.Int),Movi(0),
                          Ans(Sub(zero,x)))
@@ -87,7 +108,7 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
              Let((diff,Type.Int),FSub(x,y),
                  (Ans(IfFZ(diff,g env constenv e1,g env constenv e2))))
          else if(M.mem y constenv)then
-           let x_v = find_float x constenv in
+           let x_v = find_float y constenv in
            if(x_v=0.0)then
              Ans(IfFZ(y,g env constenv e1,g env constenv e2))
            else
@@ -141,7 +162,7 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
       Let((x, t), Add(reg_hp,C(0)),
 	  Let((reg_hp, Type.Int), Add(reg_hp, C(offset)),
 	      let z = Id.genid "l" in(*zにラベルのアドレスを入れる*)
-	      Let((z, Type.Int), Lwi(l),
+	      Let((z, Type.Int), Lwi(0,l),
 		  seq(Sw(z, 0, x),(*ラベルの値をx参照先に保存*)
 		      store_fv))))
   | Closure.AppCls(x, ys) ->
@@ -194,7 +215,7 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
   | Closure.ConstTuple(l) ->Ans(Lwi(0,l))
   | Closure.LetTuple(xts, y ,e2) when M.mem y constenv ->
      let s = Closure.fv e2 in
-     let const = find_array y constenv in
+     let const = find_tuple y constenv in
       let (offset, load) =
 	expand
 	  xts
@@ -220,39 +241,61 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
 	    if not (S.mem x s) then load else (* [XX] a little ad hoc optimization *)
 	    Let((x, t), Lw(offset,y), load)) in
       load
-  | Closure.Get(x, y) when M.mem y constenv ->
+  | Closure.Get(x, y) when M.mem y constenv -> (* xがconstarrayならlwi,flwiを使用 *)
      let i=(match M.find y constenv with ((Closure.Int(i)),_) ->i
                                        |_ ->assert false )
      in
-     (match M.find x env with
-      | Type.Array(Type.Unit) -> Ans(Nop)
-      | Type.Array(Type.Float) ->
-         Ans(FLw(i,x))(*メモリはワードアクセス*)
-      | Type.Array(_) ->
-	 Ans(Lw(i,x))
-      | _ -> assert false)
+     if(M.mem x constenv)then
+       let const_x = find_array x constenv in
+       (match M.find x env with
+        | Type.Array(Type.Unit) -> Ans(Nop)
+        | Type.Array(Type.Float) ->
+           Ans(FLwi(i,const_x))(*メモリはワードアクセス*)
+        | Type.Array(_) ->
+	   Ans(Lwi(i,const_x))
+        | _ -> assert false)
+     else
+       (match M.find x env with
+        | Type.Array(Type.Unit) -> Ans(Nop)
+        | Type.Array(Type.Float) ->
+           Ans(FLw(i,x))(*メモリはワードアクセス*)
+        | Type.Array(_) ->
+	   Ans(Lw(i,x))
+        | _ -> assert false)
+       
   | Closure.Get(x, y) -> (* 配列の読み出し (caml2html: virtual_get) *)
-      let address=Id.genid x in
-      (match M.find x env with
-       | Type.Array(Type.Unit) -> Ans(Nop)
-       | Type.Array(Type.Float) ->
-         Let((address,Type.Int),Add(x,V(y)),
-	     Ans(FLw(0,address)))(*メモリはワードアクセス*)
-      | Type.Array(_) ->
-         Let((address,Type.Int),Add(x,V(y)),
-	         Ans(Lw(0,address)))
-      | _ -> assert false)
+       let address=Id.genid x in
+       (match M.find x env with
+        | Type.Array(Type.Unit) -> Ans(Nop)
+        | Type.Array(Type.Float) ->
+           Let((address,Type.Int),Add(x,V(y)),
+	       Ans(FLw(0,address)))(*メモリはワードアクセス*)
+        | Type.Array(_) ->
+           Let((address,Type.Int),Add(x,V(y)),
+	       Ans(Lw(0,address)))
+        | _ -> assert false)
    | Closure.Put(x, y, z) when M.mem y constenv ->
       let i=(match M.find y constenv with ((Closure.Int(i)),_) ->i
-                                        |_ ->assert false )
+                                         |_ ->assert false )
       in
+      if(M.mem x constenv)then
+        let const_x = find_array x constenv in
       (match M.find x env with
       | Type.Array(Type.Unit) -> Ans(Nop)
       | Type.Array(Type.Float) ->
-	      Ans(FSw(z, i,x))
+	      Ans(FSwi(z, i,const_x))
       | Type.Array(_) ->
-	 Ans(Sw(z, i,x))
+	 Ans(Swi(z, i,const_x))
       | _ -> assert false)
+      else
+        (match M.find x env with
+         | Type.Array(Type.Unit) -> Ans(Nop)
+         | Type.Array(Type.Float) ->
+	    Ans(FSw(z, i,x))
+         | Type.Array(_) ->
+	    Ans(Sw(z, i,x))
+         | _ -> assert false)
+        
    | Closure.Put(x, y, z) ->
      let address=Id.genid x in
       (match M.find x env with
@@ -264,8 +307,8 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
          Let((address,Type.Int),Add(x,V(y)),
 	         Ans(Sw(z, 0,address)))
       | _ -> assert false)
-  | Closure.ConstArray(l) -> Ans(La(l))
-  | Closure.ExtArray(Id.L(x)) -> Ans(La(Id.L("min_caml_" ^ x)))
+  | Closure.ConstArray(l) -> Ans(Lwi(0,l))
+  | Closure.ExtArray(Id.L(x)) -> Ans(Lwi(0,Id.L("min_caml_" ^ x)))
   | Closure.ForLE(((i,a),(j,k),step),e) ->
      let tmp = Id.genid "unit" in
      Ans(ForLE(((i,V(a)),(V(j),V(k)),

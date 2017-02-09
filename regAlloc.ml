@@ -98,20 +98,15 @@ let rec shuffle (sw,fsw) xys =
          そのために「Callがあったかどうか」を返り値の第1要素に含める。 *)
 let rec target' src (dest, t) = function
   (*srcが将来どのレジスタとして使われそうか調べる*)
-  | Add(x,zero)|Sub(x,zero) when (zero=C(0)||zero=V(reg_zero))&&x = src && is_reg dest ->
+  | Mov(x) when x = src && is_reg dest ->
      assert (t <> Type.Unit);
      assert (t <> Type.Float);
      false, [dest](*srcは将来destに格納される*)
-  | Add(zero,V(x)) when zero=reg_zero&&x = src && is_reg dest ->
-     assert (t <> Type.Unit);
-     assert (t <> Type.Float);
-     false, [dest](*srcは将来destに格納される*)
-
   | FMov(x) when x = src && is_reg dest ->
       assert (t = Type.Float);
       false, [dest]
-  | IfEq(_, _, e1, e2) | IfLE(_, _, e1, e2) | IfGE(_, _, e1, e2)
-  | IfFEq(_, _, e1, e2) | IfFLE(_, _, e1, e2) ->
+  | IfEq(_, _, e1, e2) | IfLE(_, _, e1, e2) 
+  | IfFZ( _, e1, e2) | IfFLE(_, _, e1, e2) ->
       let c1, rs1 = target src (dest, t) e1 in
       let c2, rs2 = target src (dest, t) e2 in
       c1 && c2, rs1 @ rs2
@@ -137,8 +132,8 @@ and target_args src all n = function (* auxiliary function for Call *)
 
 let rec will_put_to x =function(*xが将来確実に最初にputされるref変数を返す*)
   |Let(_,Ref_Put(a,x'),_)|Let(_,Ref_FPut(a,x'),_) when x'=x ->Some a
-  |Let(_,IfEq(_,_,e1,e2),e3)|Let(_,IfLE(_,_,e1,e2),e3)|Let(_,IfGE(_,_,e1,e2),e3)
-   |Let(_,IfFEq(_,_,e1,e2),e3)|Let(_,IfFLE(_,_,e1,e2),e3) ->
+  |Let(_,IfEq(_,_,e1,e2),e3)|Let(_,IfLE(_,_,e1,e2),e3)
+   |Let(_,IfFZ(_,e1,e2),e3)|Let(_,IfFLE(_,_,e1,e2),e3) ->
     (match (will_put_to x e1,will_put_to x e2) with
      |(Some a',Some b') when a'=b' ->Some a'
      |_ ->will_put_to x e3)
@@ -146,54 +141,19 @@ let rec will_put_to x =function(*xが将来確実に最初にputされるref変�
     will_put_to x e2
   |Let(_,exp,e2) ->will_put_to x e2
   |Ans(Ref_Put(a,x'))|Ans(Ref_FPut(a,x')) when x'=x ->Some a
-  |Ans(IfEq(_,_,e1,e2))|Ans(IfLE(_,_,e1,e2))|Ans(IfGE(_,_,e1,e2))
-   |Ans(IfFEq(_,_,e1,e2))|Ans(IfFLE(_,_,e1,e2))->
+  |Ans(IfEq(_,_,e1,e2))|Ans(IfLE(_,_,e1,e2))
+   |Ans(IfFZ(_,e1,e2))|Ans(IfFLE(_,_,e1,e2))->
     (match (will_put_to x e1,will_put_to x e2) with
      |(Some a',Some b') when a'=b' ->Some a'
      |_ ->None)
   |Ans(ForLE(_,e1)) ->
     None
   |Ans(exp) ->None
-(*let rec first_occur x =function
-   |Let(_,IfEq(_,_,e1,e2),e3)|Let(_,IfLE(_,_,e1,e2),e3)|Let(_,IfGE(_,_,e1,e2),e3)
-    |Let(_,IfFEq(_,_,e1,e2),e3)|Let(_,IfFLE(_,_,e1,e2),e3) ->
-     (match (first_occur x e1,first_occur x e2) with
-      |(Some a,Some b) when a=b ->Some a
-      |(Some _,_)|(_,Some _) ->None
-      |(None,None) ->first_occur x e3)
-   |Let(_,ForLE(cs,e1),e2) ->
-     (match first_occur x e1 with
-      |Some _ ->None
-      |None ->first_occur x e2)
-(*   |Let(_,(CallCls(f,ys,zs) as exp),e2)->
-     if f=x||List.mem x ys||List.mem x zs then Some exp
-     else None(*関数呼び出し後は追わない*)
-   |Let(_,(CallDir(_,ys,zs) as exp),e2) ->
-     if List.mem x ys||List.mem x zs then Some exp
-     else None*)
-   |Let(_,exp,e2) ->
-     (if List.mem x (fv_exp exp) then Some exp
-      else first_occur x e2)
-   |Ans(IfEq(_,_,e1,e2))|Ans(IfLE(_,_,e1,e2))|Ans(IfGE(_,_,e1,e2))
-    |Ans(IfFEq(_,_,e1,e2))|Ans(IfFLE(_,_,e1,e2))->
-     (match (first_occur x e1,first_occur x e2) with
-      |(Some a,Some b) when a=b ->Some a
-      |_->None)
-   |Ans(ForLE(_,e1)) ->None
-   |Ans(CallCls(f,ys,zs)as exp) ->
-     if f=x||List.mem x (ys@zs) then Some exp
-     else None
-   |Ans(CallDir(_,ys,zs) as exp) ->
-     if List.mem x (ys@zs) then Some exp
-     else None
-   |Ans(exp)->
-     (if List.mem x (fv_exp exp) then Some exp
-      else None)*)
 
 
 let rec search_put'_exp x a cont_fv = function
-  |IfEq(_,_,e1,e2)|IfLE(_,_,e1,e2)|IfGE(_,_,e1,e2)
-   |IfFEq(_,_,e1,e2)|IfFLE(_,_,e1,e2) ->
+  |IfEq(_,_,e1,e2)|IfLE(_,_,e1,e2)
+   |IfFZ(_,e1,e2)|IfFLE(_,_,e1,e2) ->
     (search_put' x a cont_fv e1)||(search_put' x a cont_fv e2)
   |ForLE((_,_,step),e) as for_exp->
     (search_put' x a (cont_fv@(fv_exp for_exp)) e)
@@ -223,8 +183,8 @@ let rec search_get' a = function(*aがputされる前にgetされるか,健全�
       search_get' a e
   |Ans(exp) ->search_get'_exp a exp
 and search_get'_exp a = function
-  |IfEq(_,_,e1,e2)|IfLE(_,_,e1,e2)|IfGE(_,_,e1,e2)
-   |IfFEq(_,_,e1,e2)|IfFLE(_,_,e1,e2) ->
+  |IfEq(_,_,e1,e2)|IfLE(_,_,e1,e2)
+   |IfFZ(_,e1,e2)|IfFLE(_,_,e1,e2) ->
     let t1,there_is_put1=search_get' a e1 in
     let t2,there_is_put2=search_get' a e2 in
     (t1||t2,there_is_put1||there_is_put2)
@@ -378,7 +338,7 @@ let rec g (dest:Id.t*Type.t) (cont:Asm.t) regenv ref_env = function (* 命令列
            if t=Type.Float ||t=Type.Ref (Type.Float) then
              cons e1'  (Ans(FMov(a_r)))
            else
-             cons e1' (Ans(Add(a_r,C(0)))) in
+             cons e1' (Ans(Mov(a_r))) in
 	 (seq(save, concat e1' (r, t) e2'), regenv2, ref_env2)
       | Alloc(r) ->
 	 let (e2', regenv2,ref_env2) =
@@ -387,10 +347,10 @@ let rec g (dest:Id.t*Type.t) (cont:Asm.t) regenv ref_env = function (* 命令列
            if t=Type.Float ||t=Type.Ref (Type.Float) then
              cons e1' (Ans(FMov(a_r)))
            else
-             cons e1' (Ans(Add(a_r,C(0)))) in
+             cons e1' (Ans(Mov(a_r))) in
 	 (concat e1' (r, t) e2', regenv2,ref_env2))
          
-  | (Let((x,(Type.Ref t' as t)) as xt,((Add(a,C(0))) as exp) ,e)) as e0
+  | (Let((x,(Type.Ref t' as t)) as xt,((Mov(a)) as exp) ,e)) as e0
     | (Let((x,(Type.Ref t' as t)) as xt,((FMov(a)) as exp) ,e) as e0)->
      if (M.mem x regenv) then (Emit_asm.emit_exp stdout exp;
                                Printf.printf "%s:%s\n" x (M.find x ref_env);
@@ -517,17 +477,15 @@ and g'_and_restore dest cont regenv ref_env exp = (* 使用される変数をス
       |_ ->
         g dest cont regenv ref_env (Let((x, t), Restore(x), Ans(exp)))))
 and g' dest cont regenv ref_env = function (* 各命令のレジスタ割り当て 変数をレジスタで置き換えていく*)
-  | Nop |La _ | Comment _ | Restore _|In |Lui _ as exp -> (Ans(exp), regenv,ref_env)
+  | Nop |Movi _|Lwi _ |FLwi _| Comment _ | Restore _|In|FIn|Next  as exp -> (Ans(exp), regenv,ref_env)
+  | Mov(x) ->(Ans(Mov(find x Type.Int regenv))),regenv,ref_env
   | Add(x, y') -> (Ans(Add(find x Type.Int regenv, find' y' regenv)), regenv,ref_env)
-  | Sub(x, y') -> (Ans(Sub(find x Type.Int regenv, find' y' regenv)), regenv,ref_env)
+  | Sub(x, y) -> (Ans(Sub(find x Type.Int regenv, find y Type.Int regenv)), regenv,ref_env)
   | Mul(x, y) -> (Ans(Mul(find x Type.Int regenv, find y Type.Int regenv)), regenv,ref_env)
   | Div(x, y) -> (Ans(Div(find x Type.Int regenv, find y Type.Int regenv)), regenv,ref_env)
-  | Or(x, y) -> (Ans(Or(find x Type.Int regenv, find y Type.Int regenv)), regenv,ref_env)
   | SLL(x, i) -> (Ans(SLL(find x Type.Int regenv,i)), regenv,ref_env)
   | SRL(x, i) -> (Ans(SRL(find x Type.Int regenv,i)), regenv,ref_env)
   | SRA(x, i) -> (Ans(SRA(find x Type.Int regenv,i)), regenv,ref_env)
-  | Lw(i, x) -> (Ans(Lw(i,find x Type.Int regenv)), regenv,ref_env)
-  | Sw(x, i, y) -> (Ans(Sw(find x Type.Int regenv,i, find y Type.Int regenv)), regenv,ref_env)
   | FMov(x) -> (Ans(FMov(find x Type.Float regenv)), regenv,ref_env)
   | FNeg(x) -> (Ans(FNeg(find x Type.Float regenv)), regenv,ref_env)
   | FAdd(x, y) -> (Ans(FAdd(find x Type.Float regenv, find y Type.Float regenv)), regenv,ref_env)
@@ -539,15 +497,20 @@ and g' dest cont regenv ref_env = function (* 各命令のレジスタ割り当�
   | FAbs(x) ->(Ans(FAbs(find x Type.Float regenv)), regenv,ref_env)
   | FSqrt(x) ->(Ans(FSqrt(find x Type.Float regenv)), regenv,ref_env)
   | Out(x) ->(Ans(Out(find x Type.Int regenv)), regenv,ref_env)
+
+  | Lw(i, x) -> (Ans(Lw(i,find x Type.Int regenv)), regenv,ref_env)
+  | Sw(x, i, y) -> (Ans(Sw(find x Type.Int regenv,i, find y Type.Int regenv)), regenv,ref_env)
+  | Swi(x,i,l) ->(Ans(Swi(find x Type.Int regenv,i,l))),regenv,ref_env
   | FLw(i, x) -> (Ans(FLw(i,find x Type.Int regenv)), regenv,ref_env)
   | FSw(x,i,y) -> (Ans(FSw(find x Type.Float regenv,i, find y Type.Int regenv)), regenv,ref_env)
+  | FSwi(x,i,l) ->(Ans(FSwi(find x Type.Float regenv,i,l))),regenv,ref_env
   | Ref_Get(x) ->ignore (find_ref x (Type.Ref (Type.Int)) ref_env);(Ans(Nop),regenv,ref_env)(*(Ans(Add(find_ref x (Type.Ref (Type.Int)) ref_env,C(0))),regenv,ref_env)*)
   | Ref_FGet(x)->ignore (find_ref x (Type.Ref (Type.Float)) ref_env);(Ans(Nop),regenv,ref_env)(*(Ans(FMov(find_ref x (Type.Ref (Type.Float)) ref_env )),regenv,ref_env)*)
   | Ref_Put(x,y) ->let x_r = find_ref x (Type.Ref (Type.Int)) ref_env in
                    let y_r = find y Type.Int regenv in
                    if x_r=y_r then assert false
                    else
-                     (Let((x_r,Type.Ref (Type.Int)),Add(y_r,C(0)),Ans(Nop)),regenv,ref_env)
+                     (Let((x_r,Type.Ref (Type.Int)),Mov(y_r),Ans(Nop)),regenv,ref_env)
   | Ref_FPut(x,y) ->let x_r = find_ref x (Type.Ref (Type.Float)) ref_env in
                     let y_r = find y Type.Float regenv in
                     if x_r=y_r then assert false
@@ -555,8 +518,7 @@ and g' dest cont regenv ref_env = function (* 各命令のレジスタ割り当�
                       (Let((x_r,Type.Ref (Type.Float)),FMov(y_r),Ans(Nop)),regenv,ref_env)
   | IfEq(x, y', e1, e2) as exp -> g'_if dest cont regenv ref_env exp (fun e1' e2' -> IfEq(find x Type.Int regenv, find' y' regenv, e1', e2')) e1 e2
   | IfLE(x, y', e1, e2) as exp -> g'_if dest cont regenv ref_env exp (fun e1' e2' -> IfLE(find x Type.Int regenv, find' y' regenv, e1', e2')) e1 e2
-  | IfGE(x, y', e1, e2) as exp -> g'_if dest cont regenv ref_env exp (fun e1' e2' -> IfGE(find x Type.Int regenv, find' y' regenv, e1', e2')) e1 e2
-  | IfFEq(x, y, e1, e2) as exp -> g'_if dest cont regenv ref_env exp (fun e1' e2' -> IfFEq(find x Type.Float regenv, find y Type.Float regenv, e1', e2')) e1 e2
+  | IfFZ(x, e1, e2) as exp -> g'_if dest cont regenv ref_env exp (fun e1' e2' -> IfFZ(find x Type.Float regenv, e1', e2')) e1 e2
   | IfFLE(x, y, e1, e2) as exp -> g'_if dest cont regenv ref_env exp (fun e1' e2' -> IfFLE(find x Type.Float regenv, find y Type.Float regenv, e1', e2')) e1 e2
   | CallCls(x, ys, zs) as exp -> g'_call dest cont regenv ref_env exp (fun ys zs -> CallCls(find x Type.Int regenv, ys, zs)) ys zs
   | CallDir(l, ys, zs) as exp -> g'_call dest cont regenv ref_env exp (fun ys zs -> CallDir(l, ys, zs)) ys zs
@@ -571,8 +533,7 @@ and g' dest cont regenv ref_env = function (* 各命令のレジスタ割り当�
                                                                                                                                  
   | Save(x, y) -> assert false
   |Run_parallel(a,d,xs,ys) as exp-> g'_call dest cont regenv ref_env exp (fun xs ys -> Run_parallel(find a (Type.Int) regenv,find d Type.Float regenv,xs, ys)) xs ys
-  |Next ->((Ans(Next),regenv,ref_env))
-  |Acc(acc,x) ->(Ans(Acc(acc,find x (Type.Float) regenv))),regenv,ref_env
+   |Acc(acc,x) ->(Ans(Acc(acc,find x (Type.Float) regenv))),regenv,ref_env
 
 and g'_for dest cont regenv ref_env exp constr step e  =
  
@@ -611,7 +572,7 @@ and g'_for dest cont regenv ref_env exp constr step e  =
     List.fold_left
       (fun adj_mv' (r',r) ->
         if(List.mem r allregs) then
-          Let((r,Type.Int),Add(r',C(0)),adj_mv')
+          Let((r,Type.Int),Mov(r'),adj_mv')
         else
           Let((r,Type.Float),(FMov(r')),adj_mv'))
       (Ans(Nop))
@@ -794,7 +755,7 @@ let h { name = Id.L(x); args = ys; fargs = zs; body = e; ret = t } = (* 関数�
     if(t=Type.Float||t=Type.Ref (Type.Float)) then
       g (a, t) (Ans(FMov(a))) regenv M.empty e
     else
-      g (a, t) (Ans(Add(a,C(0)))) regenv M.empty e in
+      g (a, t) (Ans(Mov(a))) regenv M.empty e in
   { name = Id.L(x); args = arg_regs; fargs = farg_regs; body = e'; ret = t }
 
 let i =function
@@ -843,7 +804,7 @@ let i =function
       List.fold_left
         (fun adj_mv' (r',r) ->
           if(List.mem r allregs) then
-            Let((r,Type.Int),Add(r',C(0)),adj_mv')
+            Let((r,Type.Int),Mov(r'),adj_mv')
           else
             Let((r,Type.Float),(FMov(r')),adj_mv'))
         (Ans(Nop))
