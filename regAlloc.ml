@@ -813,7 +813,7 @@ let i =function
 	   arg_regs @ [r],
 	   (assert (not (is_reg y));
 	    M.add y r regenv)))
-        (1, [], M.empty)
+        (0, [], M.empty)
         xs in
     let (d, farg_regs, regenv) =
       List.fold_left
