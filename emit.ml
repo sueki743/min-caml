@@ -113,7 +113,7 @@ and g' oc pre = function (* 各命令のアセンブリ生成 (caml2html: emit_g
   | NonTail(x), Div(y,z) -> Printf.fprintf oc "\tdiv\t%s, %s, %s\n" x y z
   | NonTail(x), SLL(y, c) ->
      if(c=2)then
-       Printf.fprintf oc "\tsl2\t%s, %s" x y
+       Printf.fprintf oc "\tsl2\t%s, %s\n" x y
      else
        Printf.fprintf oc "\tsll\t%s, %s, %d\n" x y c
   | NonTail(x), SRL(y, c) -> Printf.fprintf oc "\tsrl\t%s, %s, %d\n" x y c
