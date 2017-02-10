@@ -176,9 +176,9 @@ let rec g global_regions  constenv fundef_env parallel_fun= function
     parallel_fun1@parallel_fun2
   |ForLE _ ->parallel_fun
   |_ -> parallel_fun
-  
+exception Dont_parallelize
 let choose_one parallel_funs =
-  let numbered_list,_ =
+  let numbered_list,n =
     List.fold_left
       (fun (numbered_list,nth) x ->(numbered_list@[(nth,x)],nth+1))
       ([],0)
@@ -190,13 +190,18 @@ let choose_one parallel_funs =
       let name = fst (fundef.name) in
       Format.eprintf "%d : %s@."  n name)
     numbered_list);
+  Format.eprintf "%d : do not parallelize@." n;
   let rec receive_ans () =
+    
+    let ans = read_int () in
     try
-      let ans = read_int () in
       List.assoc ans numbered_list
     with
-     _ ->
-      Format.eprintf "please choose number above@.";
+      _ ->
+      if ans=n then
+        raise Dont_parallelize
+      else
+        Format.eprintf "please choose number above@.";
       receive_ans ()
   in
   receive_ans ()
@@ -227,15 +232,18 @@ let f e=
   let parallel_funs=
     g [] M.empty M.empty [] e in
   if(parallel_funs<>[])then
-    let parallel_fundef,accum=choose_one parallel_funs in
-    (* accumの位置はVarCatego.elm_posを使って書かれている
+    try
+      let parallel_fundef,accum=choose_one parallel_funs in
+      (* accumの位置はVarCatego.elm_posを使って書かれている
    accumの位置は定数のパスになるのintを使った表現にする*)
-    parallelize_fun:=fst (parallel_fundef.name);
-  
-    let (new_fundef',parallel)=Mk_parallel.f parallel_fundef accum in
-
-    let e'=subst_parallel new_fundef' parallel e in(*fundef置き換え*)
-    e'
+      parallelize_fun:=fst (parallel_fundef.name);
+      
+      let (new_fundef',parallel)=Mk_parallel.f parallel_fundef accum in
+      
+      let e'=subst_parallel new_fundef' parallel e in(*fundef置き換え*)
+      e'
+    with
+      Dont_parallelize ->e
   else
     e
   
