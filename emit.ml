@@ -429,6 +429,7 @@ let print_parallel oc = function
      Printf.fprintf oc "%s:\n" lavel;
 
      g oc (Ans(Nop)) (NonTail("%g0"), e);
+     Printf.fprintf oc "\tnext\t%s\n" i;
      (if(j'=V(i)) then
        (match k' with
         |V(k) ->
@@ -498,38 +499,37 @@ let f oc oc_childe (Prog(data, fundefs,parallel, e)) =
   Printf.fprintf oc ".section\t\".text\"\n";
   Printf.fprintf oc ".global\tmin_caml_start\n";
   Printf.fprintf oc "min_caml_start:\n";
+  print_parallel oc parallel;
+  List.iter (fun fundef -> h oc fundef) fundefs;
+  Printf.fprintf oc "entry_point:\n";
   stackset := M.empty;
   stackmap := [];
   g oc (Ans(Nop)) (NonTail(regs.(0)), e);
   Printf.fprintf oc "\tin\t%%r1\n";
   Printf.fprintf oc "\tj\tmin_caml_start\n";
-  stackset := M.empty;
-  stackmap := [];
-  print_parallel oc parallel;
-  List.iter (fun fundef -> h oc fundef) fundefs;
 
 
 
                  (* 以下子コア用のコード *)
 
-  Printf.fprintf oc_childe  ".section\t\".rodata\"\n";
-  Printf.fprintf oc_childe ".align\t8\n";
-  List.iter
-    (fun (Id.L(x), d) ->
-      Printf.fprintf oc_childe "%s:\t! %f\n" x d;
-      Printf.fprintf oc_childe "\t0x%lx\n" (gethi d);)
-    data;
-  List.iter(*静的な組*)
-    (print_tuple oc_childe)
-    !HpAlloc.tuples;
-  List.iter(*静的な配列*)
-    (print_array oc_childe)
-    !HpAlloc.arrays;
-  Printf.fprintf oc_childe ".section\t\".text\"\n";
-  Printf.fprintf oc_childe ".global\tmin_caml_start\n";
-  Printf.fprintf oc_childe "min_caml_start:\n";
-  stackset := M.empty;
-  stackmap := [];
-  print_parallel oc_childe parallel;
-  List.iter (fun fundef -> h oc_childe fundef) fundefs
+  (* Printf.fprintf oc_childe  ".section\t\".rodata\"\n"; *)
+  (* Printf.fprintf oc_childe ".align\t8\n"; *)
+  (* List.iter *)
+  (*   (fun (Id.L(x), d) -> *)
+  (*     Printf.fprintf oc_childe "%s:\t! %f\n" x d; *)
+  (*     Printf.fprintf oc_childe "\t0x%lx\n" (gethi d);) *)
+  (*   data; *)
+  (* List.iter(\*静的な組*\) *)
+  (*   (print_tuple oc_childe) *)
+  (*   !HpAlloc.tuples; *)
+  (* List.iter(\*静的な配列*\) *)
+  (*   (print_array oc_childe) *)
+  (*   !HpAlloc.arrays; *)
+  (* Printf.fprintf oc_childe ".section\t\".text\"\n"; *)
+  (* Printf.fprintf oc_childe ".global\tmin_caml_start\n"; *)
+  (* Printf.fprintf oc_childe "min_caml_start:\n"; *)
+  (* stackset := M.empty; *)
+  (* stackmap := []; *)
+  (* print_parallel oc_childe parallel; *)
+  (* List.iter (fun fundef -> h oc_childe fundef) fundefs *)
 
