@@ -353,20 +353,6 @@ and g env constenv known = function (* クロージャ変換ルーチン本体 (caml2html: cl
                      HpAlloc.accum=acc;
                      HpAlloc.pbody=e1},
                     e2) ->
-     (* let find_int x constenv = *)
-     (*   match M.find x constenv with Int(i) ->i|_ ->assert false in *)
-     (* j,k,dが引数になるか、ならないか *)
-     (* let const_jkd,notC_jkd=List.partition (fun x ->M.mem x constenv) [j;k;d] in *)
-     (* let arg_ajkd=if(List.mem a notC_jkd)then *)
-     (*                List.filter (fun x ->x<>i) notC_ajkd *)
-     (*              else *)
-     (*                a::(List.filter (fun x ->x<>i) notC_ajkd) in *)
-     (* let j'=if j=i||(not(List.mem j const_jkd)) then V(j) *)
-     (*        else C(find_int j constenv) in *)
-     (* let k'=if k=i||(not(List.mem k const_jkd)) then V(k) *)
-     (*        else C(find_int k constenv) in *)
-     (* let d'=if (not(List.mem d const_jkd)) then V(d) *)
-     (*        else C(find_int d constenv) in *)
      let e1' = g env constenv known e1 in
      let e1' = insert_const constenv e1' in
      let xs = List.map fst xts in

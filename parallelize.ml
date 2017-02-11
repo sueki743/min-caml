@@ -100,7 +100,7 @@ let rec can_parallelize global_regions  constenv fundef_env {name=(fun_name,t);a
         let may_same_env=Array_tree.mk_may_same_env array_tree in
         let accum_path_list=Rw_g.analyze may_same_env array_tree rw_graph in
         let accum_path_list' =
-          List.map VarCatego.pospath2intlist accum_path_list in        
+          List.map VarCatego.pospath2intlist accum_path_list in 
         let e',accum= Accum.f constenv fundef_env accum_path_list' e in
         para_accum:=accum;
         ForLE(((i,a),(j,k),step),e')
@@ -132,7 +132,7 @@ let rec can_parallelize global_regions  constenv fundef_env {name=(fun_name,t);a
   in
    {name=(fun_name,t);args=yts ; body=e'},!para_accum
         
-      
+(* forループを含むfundefをcan_parallelizeに渡す。トップレベル関数（局所関数でない）が対象 *)
 let rec g global_regions  constenv fundef_env parallel_fun= function
   |LetRec({name=(x,t);args=_;body=e}as fundef,e2) ->
     if(loop_exit e)then

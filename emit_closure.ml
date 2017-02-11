@@ -138,12 +138,24 @@ let print_fundef oc fundef =
   g oc funbody 1;
   fprintf oc "\n>>\n"
 
-          
-
-let f oc p = match p with
+let print_parallel oc {pargs=xts;
+                       index=(i,(j',k'));
+                       accum=accs;
+                       pbody=e} =
+  fprintf oc "parallel_part| ";
+  List.iter (fun (x,t) ->fprintf oc "%s " x) xts;
+  fprintf oc "\n";
+  g oc e 1;
+  fprintf oc "\n>>\nparallel_end\n"
+  
+  
+  
+  let f oc p = match p with
   |Prog (fundefl,parallel,tree)->
     if fundefl = [] then fprintf oc "no fundef\n"
-    else ignore (List.map (print_fundef oc) fundefl);
+    else
+      List.iter (print_parallel oc) parallel;
+      ignore (List.map (print_fundef oc) fundefl);
                         fprintf oc "\n";
                         g oc tree 0;
                         p

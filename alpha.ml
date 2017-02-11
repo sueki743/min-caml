@@ -69,7 +69,7 @@ let rec g env = function (* α変換ルーチン本体 (caml2html: alpha_g) *)
              ;accum=acc
              ;pbody=e1},e2) ->
       let xs = List.map fst xts in
-      let env' = M.add_list2 xs (List.map Id.genid xs) env in
+      let env' = M.add_list2 (i::xs) (List.map Id.genid (i::xs)) env in
       let acc'=List.map
                  (fun acum ->
                    List.map
@@ -149,7 +149,7 @@ let rec subst env = function (* 代入*)
       in
 
      LetPara({pargs=List.map (fun (x,t) ->(find x env,t)) xts;
-              index=(find i env,(find' j env,find' k env));
+              index=(i,(find' j env,find' k env));
               accum=acc';
               pbody=g env e1},
              g env e2)

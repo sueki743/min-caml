@@ -836,10 +836,10 @@ let i =function
                     ) in
                      
     let (e',regenv2,ref_env2)=
-      g (Id.gentmp Type.Unit,Type.Unit) (Ans(Nop)) regenv ref_env e in
-    let arguments = xs@ys in
+      g (Id.gentmp Type.Unit,Type.Unit) e regenv ref_env e in
+    let free_in_body = (xs@ys) in
     let (adj_save,adj_mv_list,adj_restore),(regenv3,ref_env3) =
-      adjust (regenv,ref_env) (regenv2,ref_env2) arguments in
+      adjust (regenv,ref_env) (regenv2,ref_env2) free_in_body in
     let adj_mv =
       List.fold_left
         (fun adj_mv' (r',r) ->
@@ -865,7 +865,7 @@ let i =function
                                   r=r'
                                 else
                                   true)
-                       arguments);(*整合性チェック*)
+                       free_in_body);(*整合性チェック*)
     
     
   Some {pargs=arg_regs;
