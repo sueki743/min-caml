@@ -570,7 +570,7 @@ and g' dest cont regenv ref_env = function (* 各命令のレジスタ割り当�
 
                                                                                                                                  
   | Save(x, y) -> assert false
-  |Run_parallel(a,d,xs,ys) as exp-> g'_call dest cont regenv ref_env exp (fun xs s -> Run_parallel(find a (Type.Int) regenv,find d Type.Float regenv,xs, ys)) xs ys
+  |Run_parallel(a,d,xs,ys) as exp-> g'_call dest cont regenv ref_env exp (fun xs ys -> Run_parallel(find a (Type.Int) regenv,find d Type.Float regenv,xs, ys)) xs ys
   |Next ->((Ans(Next),regenv,ref_env))
   |Acc(acc,x) ->(Ans(Acc(acc,find x (Type.Float) regenv))),regenv,ref_env
 
