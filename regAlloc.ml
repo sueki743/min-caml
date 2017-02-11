@@ -528,12 +528,9 @@ and g' dest cont regenv ref_env = function (* 各命令のレジスタ割り当�
                                                                                                 (if k'=V(i) then V(find_ref i (Type.Ref(Type.Int)) ref_env)
                                                                                                  else find' k' regenv)),
                                                                                                    step),e)) step e 
-                                                                                                                                  
-
-                                                                                                                                 
   | Save(x, y) -> assert false
   |Run_parallel(a,d,xs,ys) as exp-> g'_call dest cont regenv ref_env exp (fun xs ys -> Run_parallel(find a (Type.Int) regenv,find d Type.Float regenv,xs, ys)) xs ys
-   |Acc(acc,x) ->(Ans(Acc(acc,find x (Type.Float) regenv))),regenv,ref_env
+  |Acc(acc,x) ->(Ans(Acc(acc,find x (Type.Float) regenv))),regenv,ref_env
 
 and g'_for dest cont regenv ref_env exp constr step e  =
  
@@ -765,7 +762,7 @@ let i =function
          pbody=e
         } ->
     save_ref:=[];
-    let ref_env = M.add index regs.(0) (M.empty) in
+
     let (i, arg_regs, regenv) =
       List.fold_left
         (fun (i, arg_regs, regenv) y ->
@@ -774,7 +771,7 @@ let i =function
 	   arg_regs @ [r],
 	   (assert (not (is_reg y));
 	    M.add y r regenv)))
-        (1, [], M.empty)
+        (0, [], M.empty)
         xs in
     let (d, farg_regs, regenv) =
       List.fold_left
@@ -786,6 +783,7 @@ let i =function
 	    M.add z fr regenv)))
         (0, [], regenv)
         ys in
+    let ref_env = M.add index regs.(i) (M.empty) in
     let index_regs=(find_ref index (Type.Ref (Type.Int)) ref_env,
                     ((if j'=V(index) then
                         V(find_ref index (Type.Ref(Type.Int)) ref_env)
@@ -796,10 +794,10 @@ let i =function
                     ) in
                      
     let (e',regenv2,ref_env2)=
-      g (Id.gentmp Type.Unit,Type.Unit) (Ans(Nop)) regenv ref_env e in
-    let arguments = xs@ys in
+      g (Id.gentmp Type.Unit,Type.Unit) e regenv ref_env e in
+    let free_in_body = (xs@ys) in
     let (adj_save,adj_mv_list,adj_restore),(regenv3,ref_env3) =
-      adjust (regenv,ref_env) (regenv2,ref_env2) arguments in
+      adjust (regenv,ref_env) (regenv2,ref_env2) free_in_body in
     let adj_mv =
       List.fold_left
         (fun adj_mv' (r',r) ->
@@ -825,7 +823,7 @@ let i =function
                                   r=r'
                                 else
                                   true)
-                       arguments);(*整合性チェック*)
+                       free_in_body);(*整合性チェック*)
     
     
   Some {pargs=arg_regs;

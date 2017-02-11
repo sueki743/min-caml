@@ -100,7 +100,7 @@ let rec can_parallelize global_regions  constenv fundef_env {name=(fun_name,t);a
         let may_same_env=Array_tree.mk_may_same_env array_tree in
         let accum_path_list=Rw_g.analyze may_same_env array_tree rw_graph in
         let accum_path_list' =
-          List.map VarCatego.pospath2intlist accum_path_list in        
+          List.map VarCatego.pospath2intlist accum_path_list in 
         let e',accum= Accum.f constenv fundef_env accum_path_list' e in
         para_accum:=accum;
         ForLE(((i,a),(j,k),step),e')
@@ -132,7 +132,7 @@ let rec can_parallelize global_regions  constenv fundef_env {name=(fun_name,t);a
   in
    {name=(fun_name,t);args=yts ; body=e'},!para_accum
         
-      
+(* forループを含むfundefをcan_parallelizeに渡す。トップレベル関数（局所関数でない）が対象 *)
 let rec g global_regions  constenv fundef_env parallel_fun= function
   |LetRec({name=(x,t);args=_;body=e}as fundef,e2) ->
     if(loop_exit e)then
@@ -176,9 +176,9 @@ let rec g global_regions  constenv fundef_env parallel_fun= function
     parallel_fun1@parallel_fun2
   |ForLE _ ->parallel_fun
   |_ -> parallel_fun
-  
+exception Dont_parallelize
 let choose_one parallel_funs =
-  let numbered_list,_ =
+  let numbered_list,n =
     List.fold_left
       (fun (numbered_list,nth) x ->(numbered_list@[(nth,x)],nth+1))
       ([],0)
@@ -190,13 +190,18 @@ let choose_one parallel_funs =
       let name = fst (fundef.name) in
       Format.eprintf "%d : %s@."  n name)
     numbered_list);
+  Format.eprintf "%d : do not parallelize@." n;
   let rec receive_ans () =
+    
+    let ans = read_int () in
     try
-      let ans = read_int () in
       List.assoc ans numbered_list
     with
-     _ ->
-      Format.eprintf "please choose number above@.";
+      _ ->
+      if ans=n then
+        raise Dont_parallelize
+      else
+        Format.eprintf "please choose number above@.";
       receive_ans ()
   in
   receive_ans ()
@@ -227,15 +232,18 @@ let f e=
   let parallel_funs=
     g [] M.empty M.empty [] e in
   if(parallel_funs<>[])then
-    let parallel_fundef,accum=choose_one parallel_funs in
-    (* accumの位置はVarCatego.elm_posを使って書かれている
+    try
+      let parallel_fundef,accum=choose_one parallel_funs in
+      (* accumの位置はVarCatego.elm_posを使って書かれている
    accumの位置は定数のパスになるのintを使った表現にする*)
-    parallelize_fun:=fst (parallel_fundef.name);
-  
-    let (new_fundef',parallel)=Mk_parallel.f parallel_fundef accum in
-
-    let e'=subst_parallel new_fundef' parallel e in(*fundef置き換え*)
-    e'
+      parallelize_fun:=fst (parallel_fundef.name);
+      
+      let (new_fundef',parallel)=Mk_parallel.f parallel_fundef accum in
+      
+      let e'=subst_parallel new_fundef' parallel e in(*fundef置き換え*)
+      e'
+    with
+      Dont_parallelize ->e
   else
     e
   
