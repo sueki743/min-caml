@@ -46,6 +46,10 @@ let getpos () =
 %token FSQRT
 %token FABS
 %token FNEG
+%token FLESS
+%token FISPOS
+%token FISNEG
+%token FISZERO
 
 %token DOT
 %token LESS_MINUS
@@ -156,6 +160,18 @@ exp: /* (* ∞Ï»Ã§Œº∞ (caml2html: parser_exp) *) */
 | ARRAY_CREATE simple_exp simple_exp
     %prec prec_app
     { Array($2, $3) }
+| FLESS simple_exp simple_exp
+   %prec prec_app
+   { LE($2, $3) }
+| FISPOS simple_exp
+  %prec prec_app
+  { LE( Float(0.0,getpos () ), $2) }
+| FISNEG simple_exp
+  %prec prec_app
+  { LE( $2, Float(0.0,getpos ())) }
+| FISZERO simple_exp
+  %prec prec_app
+  { Eq($2, Float(0.0,getpos ())) }
 | READ_INT simple_exp
     %prec prec_app
     { Read_int($2) }

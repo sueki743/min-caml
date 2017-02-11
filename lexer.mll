@@ -94,6 +94,15 @@ rule token = parse
     { FABS }
 |  "fneg"
     { FNEG }
+|   "fless"
+    { FLESS }
+|   "fispos"
+    { FISPOS }
+|   "fisneg"
+    { FISNEG }
+|   "fiszero"
+    { FISZERO }
+    
 | '.'
     { DOT }
 | "<-"
