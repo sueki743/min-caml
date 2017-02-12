@@ -75,7 +75,7 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
 	  data := (l, d) :: !data;
 	  l
       in
-       Ans(FLwi(0,l))(*１段に出来そう->出来ない*)
+       Ans(FLwi(0,l))
   | Closure.Neg(x) ->let zero = Id.genid "zero" in
                      Let((zero,Type.Int),Movi(0),
                          Ans(Sub(zero,x)))
@@ -108,9 +108,9 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
              Let((diff,Type.Int),FSub(x,y),
                  (Ans(IfFZ(diff,g env constenv e1,g env constenv e2))))
          else if(M.mem y constenv)then
-           let x_v = find_float y constenv in
-           if(x_v=0.0)then
-             Ans(IfFZ(y,g env constenv e1,g env constenv e2))
+           let y_v = find_float y constenv in
+           if(y_v=0.0)then
+             Ans(IfFZ(x,g env constenv e1,g env constenv e2))
            else
              let diff = Id.genid "diff" in
              Let((diff,Type.Int),FSub(x,y),
@@ -162,7 +162,7 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
       Let((x, t), Add(reg_hp,C(0)),
 	  Let((reg_hp, Type.Int), Add(reg_hp, C(offset)),
 	      let z = Id.genid "l" in(*zにラベルのアドレスを入れる*)
-	      Let((z, Type.Int), Lwi(0,l),
+	      Let((z, Type.Int), La(l),
 		  seq(Sw(z, 0, x),(*ラベルの値をx参照先に保存*)
 		      store_fv))))
   | Closure.AppCls(x, ys) ->
@@ -212,7 +212,7 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
 	  Let((reg_hp, Type.Int), Add(reg_hp, C( offset)),
 	      store))
   (*ヒープレジスタをoffset分伸ばして、yに組の先頭に入れてstoreする*)
-  | Closure.ConstTuple(l) ->Ans(Lwi(0,l))
+  | Closure.ConstTuple(l) ->Ans(La(l))
   | Closure.LetTuple(xts, y ,e2) when M.mem y constenv ->
      let s = Closure.fv e2 in
      let const = find_tuple y constenv in
@@ -307,8 +307,8 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
          Let((address,Type.Int),Add(x,V(y)),
 	         Ans(Sw(z, 0,address)))
       | _ -> assert false)
-  | Closure.ConstArray(l) -> Ans(Lwi(0,l))
-  | Closure.ExtArray(Id.L(x)) -> Ans(Lwi(0,Id.L("min_caml_" ^ x)))
+  | Closure.ConstArray(l) -> Ans(La(l))
+  | Closure.ExtArray(Id.L(x)) -> Ans(La(Id.L("min_caml_" ^ x)))
   | Closure.ForLE(((i,a),(j,k),step),e) ->
      let tmp = Id.genid "unit" in
      Ans(ForLE(((i,V(a)),(V(j),V(k)),

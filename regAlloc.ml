@@ -477,7 +477,7 @@ and g'_and_restore dest cont regenv ref_env exp = (* 使用される変数をス
       |_ ->
         g dest cont regenv ref_env (Let((x, t), Restore(x), Ans(exp)))))
 and g' dest cont regenv ref_env = function (* 各命令のレジスタ割り当て 変数をレジスタで置き換えていく*)
-  | Nop |Movi _|Lwi _ |FLwi _| Comment _ | Restore _|In|FIn|Next  as exp -> (Ans(exp), regenv,ref_env)
+  | Nop |Movi _|Lwi _ |FLwi _| Comment _ | Restore _|In|FIn|Next|La _  as exp -> (Ans(exp), regenv,ref_env)
   | Mov(x) ->(Ans(Mov(find x Type.Int regenv))),regenv,ref_env
   | Add(x, y') -> (Ans(Add(find x Type.Int regenv, find' y' regenv)), regenv,ref_env)
   | Sub(x, y) -> (Ans(Sub(find x Type.Int regenv, find y Type.Int regenv)), regenv,ref_env)

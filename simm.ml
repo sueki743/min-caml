@@ -17,7 +17,7 @@ let rec g env  = function (* 命令列の16bit即値最適化 (caml2html: simm13_g) *)
       if List.mem x (fv e') then Let((x, t), Movi(i), e') else
       ((* Format.eprintf "erased redundant Set to %s@." x; *)
        e')
-  | Let((x,t),Lwi(0,lavel),e2) as e -> (*無駄なlwiを除去 *)
+  | Let((x,t),La(lavel),e2) as e -> (*無駄なlaを除去 *)
      if List.mem x (fv e2) then e else e2
   | Let(xt, exp, e) -> Let(xt, g' env exp, g env e)
 and g' env = function (* 各命令の13bit即値最適化 (caml2html: simm13_gprime) *)

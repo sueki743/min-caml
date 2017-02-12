@@ -33,6 +33,8 @@ type t = (* 命令の列 (caml2html: sparcasm_t) *)
    | Swi of Id.t *int* Id.l
    | FSw of Id.t * int * Id.t
    | FSwi of Id.t *int* Id.l
+
+   |La of Id.l
                       
    | Ftoi of Id.t
    | Itof of Id.t

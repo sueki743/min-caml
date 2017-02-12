@@ -127,6 +127,8 @@ and g' oc pre = function (* 各命令のアセンブリ生成 (caml2html: emit_g
   | NonTail(x), FLwi(i,Id.L(y)) ->Printf.fprintf oc "\tflwi\t%s, %d(%s)\n" x i y
   | NonTail(_), FSw(x,c,y) -> Printf.fprintf oc "\tfsw\t%s, %d(%s)\n" x c y
   | NonTail(_), FSwi(x,c,Id.L(l)) ->Printf.fprintf oc "\tfswi\t%s, %d(%s)\n" x c l
+
+  | NonTail(x), La(Id.L(l)) -> Printf.fprintf oc "\tla\t%s, %s\n"  x l
                                                    
   | NonTail(x), FAdd(y, z) -> Printf.fprintf oc "\tfadd\t%s, %s, %s\n" x y z
   | NonTail(x), FSub(y, z) -> Printf.fprintf oc "\tfsub\t%s, %s, %s\n" x y z
@@ -226,7 +228,7 @@ and g' oc pre = function (* 各命令のアセンブリ生成 (caml2html: emit_g
   | Tail, (Nop | Sw _ | FSw _ |Swi _ |FSwi _|Acc _| Comment _ | Save _ |Out _ |ForLE _ as exp) ->
       g' oc pre (NonTail(Id.gentmp Type.Unit), exp);
       Printf.fprintf oc "\tjr\n"
-  | Tail, ( Add _ | Sub _ |Mul _|Div _| SLL _ | SRL _| SRA _| Lw _ |Lwi _|Mov _|Movi _|Ftoi _ |In as exp) ->
+  | Tail, ( Add _ | Sub _ |Mul _|Div _| SLL _ | SRL _| SRA _| Lw _ |Lwi _|Mov _|Movi _|Ftoi _ |In| La _ as exp) ->
       g' oc pre (NonTail(regs.(0)), exp);
       Printf.fprintf oc "\tjr\n"
   | Tail, ( FAdd _ | FSub _ | FMul _ | FDiv _|FLw _ |FLwi _| FMov _|FNeg _  

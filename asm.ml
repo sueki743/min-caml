@@ -35,6 +35,8 @@ type t = (* 命令の列 (caml2html: sparcasm_t) *)
    | Swi of Id.t *int* Id.l
    | FSw of Id.t * int * Id.t
    | FSwi of Id.t *int* Id.l
+
+   | La of Id.l                 (* constarrayを値として表現するため（潰せるはず） *)
                       
    | Ftoi of Id.t
    | Itof of Id.t
@@ -146,6 +148,8 @@ let rec fv_exp = function
    | Swi(x,_,_) ->[x]
    | FSw(x,_,y) ->[x;y]
    | FSwi(x,_,_) ->[x]
+
+   | La _ ->[]
                       
    | Ftoi(x) ->[x]
    | Itof(y) ->[y]
