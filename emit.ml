@@ -383,6 +383,8 @@ let print_parallel oc = function
          pfargs=_;
          index=(i,(j',k'));
          pbody=e} ->
+  stackset := M.empty;
+  stackmap := [];
          
      let lavel=Id.genid "loop" in
      let lavel_end=Id.genid "loop_end" in
@@ -475,6 +477,10 @@ let f oc oc_childe (Prog(data, fundefs,parallel, e)) =
     !HpAlloc.arrays;
   Printf.fprintf oc ".section\t\".text\"\n";
   Printf.fprintf oc ".global\tmin_caml_start\n";
+  Printf.fprintf oc "min_caml_start:\n";
+  print_parallel oc parallel;
+  List.iter (fun fundef -> h oc fundef) fundefs;
+  
   Printf.fprintf oc "entry_point:\n";
   stackset := M.empty;
   stackmap := [];
@@ -482,9 +488,6 @@ let f oc oc_childe (Prog(data, fundefs,parallel, e)) =
   Printf.fprintf oc "\tin\t%%r1\n";
   Printf.fprintf oc "\tj\tmin_caml_start\n";
   
-  Printf.fprintf oc "min_caml_start:\n";
-  print_parallel oc parallel;
-  List.iter (fun fundef -> h oc fundef) fundefs;
 
 
 
