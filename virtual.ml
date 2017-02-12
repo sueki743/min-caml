@@ -159,7 +159,7 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
 	  (1, e2')
 	  (fun y offset store_fv -> seq(FSw(y, offset, x), store_fv))
 	  (fun y _ offset store_fv -> seq(Sw(y, offset, x), store_fv)) in
-      Let((x, t), Add(reg_hp,C(0)),
+      Let((x, t), Mov(reg_hp),
 	  Let((reg_hp, Type.Int), Add(reg_hp, C(offset)),
 	      let z = Id.genid "l" in(*zにラベルのアドレスを入れる*)
 	      Let((z, Type.Int), La(l),
@@ -205,10 +205,10 @@ let rec g env constenv  = function (* 式の仮想マシンコード生成 (caml
       let (offset, store) =
 	expand
 	  (List.map (fun x -> (x, M.find x env)) xs)(*型を連想づける*)
-	  (0, Ans(Add(y,C(0))))
+	  (0, Ans(Mov(y)))
 	  (fun x offset store -> seq(FSw(x, offset,y), store))(*次のstore値*)
 	  (fun x _ offset store -> seq(Sw(x,offset, y), store)) in
-      Let((y, Type.Tuple(List.map (fun x -> M.find x env) xs)), Add(reg_hp,C(0)),
+      Let((y, Type.Tuple(List.map (fun x -> M.find x env) xs)), Mov(reg_hp),
 	  Let((reg_hp, Type.Int), Add(reg_hp, C( offset)),
 	      store))
   (*ヒープレジスタをoffset分伸ばして、yに組の先頭に入れてstoreする*)

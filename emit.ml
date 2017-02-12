@@ -330,7 +330,7 @@ and g' oc pre = function (* 各命令のアセンブリ生成 (caml2html: emit_g
       Printf.fprintf oc "\tjal\t%s\n" x;
       Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sp reg_sp ss;
       if List.mem a allregs && a <> regs.(0) then
-	Printf.fprintf oc "\taddi\t%s, %s, 0\n" a regs.(0)
+	Printf.fprintf oc "\tmov\t%s, %s\n" a regs.(0)
       else if List.mem a allfregs && a <> fregs.(0) then
 	Printf.fprintf oc "\tfmov\t%s, %s\n" a fregs.(0)
   |_,Next ->assert false

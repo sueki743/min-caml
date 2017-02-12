@@ -15,10 +15,11 @@ let rec g env  = function (* 命令列の16bit即値最適化 (caml2html: simm13_g) *)
        when (-32768 <= i) && (i < 32768) ->
       let e' = g (M.add x i env) e in
       if List.mem x (fv e') then Let((x, t), Movi(i), e') else
-      ((* Format.eprintf "erased redundant Set to %s@." x; *)
+        ((* Format.eprintf "erased redundant Set to %s@." x; *)
        e')
-  | Let((x,t),La(lavel),e2) as e -> (*無駄なlaを除去 *)
-     if List.mem x (fv e2) then e else e2
+  | Let((x,t),La(lavel),e2) -> (*無駄なlaを除去 *)
+     let e2' = g env e2 in
+     if  List.mem x (fv e2') then Let((x,t),La(lavel),e2') else e2'
   | Let(xt, exp, e) -> Let(xt, g' env exp, g env e)
 and g' env = function (* 各命令の13bit即値最適化 (caml2html: simm13_gprime) *)
   | Add(x, V(y)) when M.mem y env -> Add(x, C(M.find y env))
