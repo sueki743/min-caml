@@ -532,6 +532,7 @@ and g' dest cont regenv ref_env = function (* 各命令のレジスタ割り当�
   |Run_parallel(a,d,xs,ys) as exp-> g'_call dest cont regenv ref_env exp (fun xs ys -> Run_parallel(find a (Type.Int) regenv,find d Type.Float regenv,xs, ys)) xs ys
   |Acc(acc,x) ->(Ans(Acc(acc,find x (Type.Float) regenv))),regenv,ref_env
 
+
 and g'_for dest cont regenv ref_env exp constr step e  =
  
   
@@ -553,7 +554,27 @@ and g'_for dest cont regenv ref_env exp constr step e  =
                          save x r;
                          (seq(Save(r,x),e_save),regenv',M.remove x ref_env'))))
       (Ans(Nop),regenv,ref_env)
-  free_afterloop in
+      free_afterloop in
+  let e_save = if(there_is_call e)then
+                 List.fold_left
+                   (fun e_save x ->
+                     if (not (M.mem x regenv)) && not(M.mem x ref_env) then
+                       e_save
+                     else
+                       (try (let r= M.find x regenv  in
+                             save x r;
+                             (seq(Save(r,x),e_save)))
+                        with
+                          Not_found ->
+                          (let r=M.find x ref_env in
+                           save x r;
+                           (seq(Save(r,x),e_save)))))
+                   e_save
+                   free_for
+               else
+                 e_save
+  in
+                       
   (*後続命令にcontにループ自身を加えループの中をレジスタ割り当て*)
   let cont' = concat (Ans(exp)) (Id.genid "unit",Type.Unit) cont in
   let save_ref_backup = !save_ref in

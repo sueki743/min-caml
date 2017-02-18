@@ -275,7 +275,18 @@ and remove_allexp' exp = function
     ForLE((a,b,step'),e')
   |exp2->exp2
 
-                        
+let rec there_is_call = function
+  |Ans(exp) ->there_is_call' exp
+  |Let(_,exp,e) ->
+    if there_is_call' exp then true
+    else
+      there_is_call e
+and there_is_call' = function
+  |Run_parallel _|CallCls _|CallDir _|ForLE _ ->true
+  |IfEq(_,_,e1,e2)|IfLE(_,_,e1,e2)|IfFZ(_,e1,e2)|IfFLE(_,_,e1,e2)
+   ->(there_is_call e1)||(there_is_call e2)
+  |_ ->false
+  
 
 
 

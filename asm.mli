@@ -100,3 +100,4 @@ val before_ans:exp ->t ->t
 val align : int -> int
 val remove_exp:exp ->t ->t*bool
 val remove_allexp:exp ->t->t
+val there_is_call : t->bool

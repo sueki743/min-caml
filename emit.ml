@@ -298,7 +298,7 @@ and g' oc pre = function (* 各命令のアセンブリ生成 (caml2html: emit_g
   | Tail, CallCls(x, ys, zs) -> (* 末尾呼び出し (caml2html: emit_tailcall) *) 
      g'_args oc [(x, reg_cl)] ys zs;(*レジスタ入れ替えでxの位置が分かるように*)
       Printf.fprintf oc "\tlw\t%s, 0(%s)\n" reg_sw reg_cl;
-      Printf.fprintf oc "\tj\t%s\n" reg_sw;
+      Printf.fprintf oc "\tjalr\t%s\n" reg_sw;
   | Tail, CallDir(Id.L(x), ys, zs) -> (* 末尾呼び出し *)
       g'_args oc [] ys zs;
       Printf.fprintf oc "\tj\t%s\n" x;
