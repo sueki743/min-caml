@@ -501,20 +501,20 @@ let f oc oc_childe (Prog(data, fundefs,parallel, e)) =
 
 
                  (* 以下子コア用のコード *)
-  let (floats,tuples,arrays,fundefs) = Effective_data.f parallel (data,fundefs) in
+  let (_,_,_,fundefs) = Effective_data.f parallel (data,fundefs) in
   Printf.fprintf oc_childe  ".section\t\".rodata\"\n";
   Printf.fprintf oc_childe ".align\t8\n";
   List.iter
     (fun (Id.L(x), d) ->
       Printf.fprintf oc_childe "%s:\t! %f\n" x d;
       Printf.fprintf oc_childe "\t0x%lx\n" (gethi d);)
-    floats;
+    data;
   List.iter(*静的な組*)
     (print_tuple oc_childe)
-    tuples;
+    !HpAlloc.tuples;
   List.iter(*静的な配列*)
     (print_array oc_childe)
-    arrays;
+    !HpAlloc.arrays;
   Printf.fprintf oc_childe ".section\t\".text\"\n";
   Printf.fprintf oc_childe ".global\tmin_caml_start\n";
   Printf.fprintf oc_childe "min_caml_start:\n";
