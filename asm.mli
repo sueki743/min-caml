@@ -101,3 +101,5 @@ val align : int -> int
 val remove_exp:exp ->t ->t*bool
 val remove_allexp:exp ->t->t
 val there_is_call : t->bool
+val fv_before_call : t -> Id.t list
+val remove_and_uniq : S.t ->S.elt list ->S.elt list

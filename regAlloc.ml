@@ -583,9 +583,10 @@ and g'_for dest cont regenv ref_env exp constr step e  =
   let (step',regenv2,ref_env2) =
     g dest cont' regenv1 ref_env1 step in
   (*ループの最初と最後でループ内自由変数のレジスタ割り当てを同じにする*)
-  
+  let must_restore = fv_before_call e in
+  (* 関数呼び出し前に使用される変数はループ末尾でrestoreする、他はしない *)
   let (adj_save,adj_mv_list,adj_restore),(regenv3,ref_env3) =
-    adjust (regenv',ref_env') (regenv2,ref_env2) free_for in
+    adjust (regenv',ref_env') (regenv2,ref_env2) free_for must_restore in
   let adj_mv =
     List.fold_left
       (fun adj_mv' (r',r) ->
@@ -601,17 +602,17 @@ and g'_for dest cont regenv ref_env exp constr step e  =
   let step' =
     cons step' (cons adj_save (cons adj_mv adj_restore)) in
     
-  assert (List.for_all (fun x ->if(M.mem x regenv')then
-                                  let r'=M.find x regenv' in
-                                  let r=M.find x regenv3 in
-                                  r=r'
-                                else if(M.mem x ref_env') then
-                                  let r'=M.find x ref_env' in
-                                  let r=M.find x ref_env3 in
-                                  r=r'
-                                else
-                                  true)
-                       free_for);(*整合性チェック*)
+  (* assert (List.for_all (fun x ->if(M.mem x regenv')then *)
+  (*                                 let r'=M.find x regenv' in *)
+  (*                                 let r=M.find x regenv3 in *)
+  (*                                 r=r' *)
+  (*                               else if(M.mem x ref_env') then *)
+  (*                                 let r'=M.find x ref_env' in *)
+  (*                                 let r=M.find x ref_env3 in *)
+  (*                                 r=r' *)
+  (*                               else *)
+  (*                                 true) *)
+  (*                      free_for);(\*整合性チェック*\) *)
                                   
   let  save_ref_backup2= !save_ref in
   save_ref:=save_ref_backup;
@@ -619,7 +620,7 @@ and g'_for dest cont regenv ref_env exp constr step e  =
    save_ref:=save_ref_backup2;
    cons e_save (Ans(for_exp)),regenv',ref_env'
   
-and adjust (regenv1,ref_env1) (regenv2,ref_env2) f_v =
+and adjust (regenv1,ref_env1) (regenv2,ref_env2) f_v restore_fv=
   (*ループの最初と末尾でレジスタの整合性を保つ*)
   List.fold_left
     (fun ((save',adjust_mv,restore),(regenv,ref_env)) x ->
@@ -638,18 +639,21 @@ and adjust (regenv1,ref_env1) (regenv2,ref_env2) f_v =
           else (save',adjust_mv,restore),(regenv,ref_env)
 
         else(*xがregenv2,ref_env2で割り当てられていない*)
-          if(List.mem r allregs)&&(M.mem x regenv1) then
-            (save',adjust_mv,Let((r,Type.Int),Restore(x),restore)),
-            (add x r (remove r regenv),remove r ref_env)
-          else if(List.mem r allregs)&&(M.mem x ref_env1) then
-            (save',adjust_mv,Let((r,Type.Ref (Type.Int)),Restore(x),restore)),
+          if(List.mem x restore_fv)then
+            if(List.mem r allregs)&&(M.mem x regenv1) then
+              (save',adjust_mv,Let((r,Type.Int),Restore(x),restore)),
+              (add x r (remove r regenv),remove r ref_env)
+            else if(List.mem r allregs)&&(M.mem x ref_env1) then
+              (save',adjust_mv,Let((r,Type.Ref (Type.Int)),Restore(x),restore)),
               (remove r regenv,add x r (remove r ref_env))
-          else if(List.mem r allfregs)&&(M.mem x regenv1) then
-            (save',adjust_mv,Let((r,Type.Float),Restore(x),restore)),
-            (add x r (remove r regenv),remove r ref_env)
+            else if(List.mem r allfregs)&&(M.mem x regenv1) then
+              (save',adjust_mv,Let((r,Type.Float),Restore(x),restore)),
+              (add x r (remove r regenv),remove r ref_env)
+            else
+              (save',adjust_mv,Let((r,Type.Ref(Type.Float)),Restore(x),restore)),
+              (remove r regenv,add x r (remove r ref_env))
           else
-            (save',adjust_mv,Let((r,Type.Ref(Type.Float)),Restore(x),restore)),
-            (remove r regenv,add x r (remove r ref_env))
+            ((save',adjust_mv,restore),(regenv,ref_env))
             
       else(*xがregenv1,ref_env1で割り当てられていない*)
         if M.mem x regenv2||M.mem x ref_env2 then
@@ -808,17 +812,38 @@ let i =function
     let index_regs=(find_ref index (Type.Ref (Type.Int)) ref_env,
                     ((if j'=V(index) then
                         V(find_ref index (Type.Ref(Type.Int)) ref_env)
-                       else find' j' regenv),
+                      else find' j' regenv),
                      (if k'=V(index) then
                         V(find_ref index (Type.Ref(Type.Int)) ref_env)
-                       else find' k' regenv))
-                    ) in
-                     
+                      else find' k' regenv))
+                   ) 
+    in
+
+    let free_in_body = (xs@ys) in
+    (* let pre_save =if(there_is_call e) then *)
+    (*                 List.fold_left (\* bodyで退避される変数はループ外で退避する *\) *)
+    (*                   (fun pre_save x -> *)
+    (*                     (try (let r=M.find x regenv in *)
+    (*                           save x r; *)
+    (*                           (seq(Save(r,x),pre_save))) *)
+    (*                      with *)
+    (*                        Not_found -> *)
+    (*                        (let r= M.find x ref_env in *)
+    (*                         save x r; *)
+    (*                         (seq(Save(r,x),e_save))))) *)
+    (*                   (Ans(Nop)) *)
+    (*                   free_in_body *)
+    (*               else *)
+    (*                 Ans(Nop) *)
+    (*     in 
+今のparallel表現だとループ以前の処理書けなかった,,,*)
+        
+        
     let (e',regenv2,ref_env2)=
       g (Id.gentmp Type.Unit,Type.Unit) e regenv ref_env e in
-    let free_in_body = (xs@ys) in
+    let must_restore = fv_before_call e in
     let (adj_save,adj_mv_list,adj_restore),(regenv3,ref_env3) =
-      adjust (regenv,ref_env) (regenv2,ref_env2) free_in_body in
+      adjust (regenv,ref_env) (regenv2,ref_env2) free_in_body must_restore in
     let adj_mv =
       List.fold_left
         (fun adj_mv' (r',r) ->
@@ -831,18 +856,18 @@ let i =function
     (if adj_save <>(Ans(Nop)) then Format.eprintf "there are adj_save(p)\n";
      if adj_mv_list<>[] then Format.eprintf "there are adj_move(p)\n";
      if adj_restore <>(Ans(Nop)) then Format.eprintf "there are adj_restore(p)\n");
-  let e'' =
-    cons e' (cons adj_save (cons adj_mv adj_restore)) in
+    let e'' =
+      cons e' (cons adj_save (cons adj_mv adj_restore)) in
     
-  assert (List.for_all (fun x ->if(M.mem x regenv)then
-                                  let r'=M.find x regenv in
-                                  let r=M.find x regenv3 in
+    assert (List.for_all (fun x ->if(M.mem x regenv)then
+                                    let r'=M.find x regenv in
+                                    let r=M.find x regenv3 in
+                                    r=r'
+                                  else if(M.mem x ref_env) then
+                                    let r'=M.find x ref_env in
+                                    let r=M.find x ref_env3 in
                                   r=r'
-                                else if(M.mem x ref_env) then
-                                  let r'=M.find x ref_env in
-                                  let r=M.find x ref_env3 in
-                                  r=r'
-                                else
+                                  else
                                   true)
                        free_in_body);(*整合性チェック*)
     

@@ -98,6 +98,7 @@ let reg_hp = "%r31" (* heap pointer *)
 let is_reg x = (x.[0] = '%')
 
 
+                 
 (*浮動小数は32ビットなのでいらない。*)
 (*let co_freg_table =
   let ht = Hashtbl.create 16 in
@@ -111,8 +112,8 @@ let is_reg x = (x.[0] = '%')
 let co_freg freg = Hashtbl.find co_freg_table freg (* "companion" freg *)
  *)
                  
-(* super-tenuki *)
 let rec remove_and_uniq xs = function
+(* super-tenuki *)
   | [] -> []
   | x :: ys when S.mem x xs -> remove_and_uniq xs ys
   | x :: ys -> x :: remove_and_uniq (S.add x xs) ys
@@ -184,6 +185,8 @@ and fv = function
   | Let((x, t), exp, e) ->
      fv_exp exp @ remove_and_uniq (S.singleton x) (fv e)
 (*let fv e = remove_and_uniq S.empty (fv e)*) (*<-what this??*)
+
+                    
 
 let rec concat e1 xt e2 =(*e1の結果をxtに束縛して、e2をつなげる*)
   match e1 with
@@ -286,6 +289,26 @@ and there_is_call' = function
   |IfEq(_,_,e1,e2)|IfLE(_,_,e1,e2)|IfFZ(_,e1,e2)|IfFLE(_,_,e1,e2)
    ->(there_is_call e1)||(there_is_call e2)
   |_ ->false
+
+let fv_before_call e =
+  let rec before_call =function
+    |Ans(exp) ->Ans(before_call' exp)
+    |Let(xt,exp,e)->if(there_is_call' exp)then
+                      Ans(before_call' exp)
+                    else
+                      Let(xt,exp,before_call e)
+  and before_call' = function
+    |IfEq(x,y',e1,e2) ->IfEq(x,y',before_call e1,before_call e2)
+    |IfLE(x,y',e1,e2) ->IfLE(x,y',before_call e1,before_call e2)
+    |IfFZ(x,e1,e2) ->IfFZ(x,before_call e1,before_call e2)
+    |IfFLE(x,y,e1,e2) ->IfFLE(x,y,before_call e1,before_call e2)
+    |ForLE(cs,e) ->Nop
+    |e ->e
+  in
+  let e' = before_call e in
+  fv e'
+      
+         
   
 
 

@@ -307,18 +307,23 @@ and g' oc pre = function (* 各命令のアセンブリ生成 (caml2html: emit_g
      Printf.fprintf oc "\tfork\t%s, %s" a d
   | NonTail(_), Run_parallel(a,d,ys,zs) ->
      g'_args oc [] ys zs;
-      let ss = stacksize () in
-      Printf.fprintf oc "\taddi\t%s, %s, -%d\n" reg_sp reg_sp ss;
-      Printf.fprintf oc "\tfork\t%s, %s\n" a d; (* returnアドレスいらない? *)
-      Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sp reg_sp ss;
+     let ss = stacksize () in
+     if ss<> 0 then
+       (Printf.fprintf oc "\taddi\t%s, %s, -%d\n" reg_sp reg_sp ss;
+        Printf.fprintf oc "\tfork\t%s, %s\n" a d;
+        Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sp reg_sp ss)
+     else
+       Printf.fprintf oc "\tfork\t%s, %s\n" a d
 
   | NonTail(a), CallCls(x, ys, zs) ->
       g'_args oc [(x, reg_cl)] ys zs;
       let ss = stacksize () in
       Printf.fprintf oc "\tlw\t%s, 0(%s)\n" reg_sw reg_cl;
-      Printf.fprintf oc "\taddi\t%s, %s, -%d\n" reg_sp reg_sp ss;
+      if ss<>0 then
+        Printf.fprintf oc "\taddi\t%s, %s, -%d\n" reg_sp reg_sp ss;
       Printf.fprintf oc "\tjalr\t%s\n" reg_sw;
-      Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sp reg_sp ss;(*即値引き算*)
+      if ss<>0 then
+        Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sp reg_sp ss;(*即値引き算*)
       if List.mem a allregs && a <> regs.(0) then
 	Printf.fprintf oc "\tmov\t%s, %s\n" a regs.(0)
       else if List.mem a allfregs && a <> fregs.(0) then
@@ -326,9 +331,11 @@ and g' oc pre = function (* 各命令のアセンブリ生成 (caml2html: emit_g
   | NonTail(a), CallDir(Id.L(x), ys, zs) ->
       g'_args oc [] ys zs;
       let ss = stacksize () in
-      Printf.fprintf oc "\taddi\t%s, %s, -%d\n" reg_sp reg_sp ss;
+      if ss<>0 then
+        Printf.fprintf oc "\taddi\t%s, %s, -%d\n" reg_sp reg_sp ss;
       Printf.fprintf oc "\tjal\t%s\n" x;
-      Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sp reg_sp ss;
+      if ss<>0 then
+        Printf.fprintf oc "\taddi\t%s, %s, %d\n" reg_sp reg_sp ss;
       if List.mem a allregs && a <> regs.(0) then
 	Printf.fprintf oc "\tmov\t%s, %s\n" a regs.(0)
       else if List.mem a allfregs && a <> fregs.(0) then
@@ -494,20 +501,20 @@ let f oc oc_childe (Prog(data, fundefs,parallel, e)) =
 
 
                  (* 以下子コア用のコード *)
-
+  let (floats,tuples,arrays,fundefs) = Effective_data.f parallel (data,fundefs) in
   Printf.fprintf oc_childe  ".section\t\".rodata\"\n";
   Printf.fprintf oc_childe ".align\t8\n";
   List.iter
     (fun (Id.L(x), d) ->
       Printf.fprintf oc_childe "%s:\t! %f\n" x d;
       Printf.fprintf oc_childe "\t0x%lx\n" (gethi d);)
-    data;
+    floats;
   List.iter(*静的な組*)
     (print_tuple oc_childe)
-    !HpAlloc.tuples;
+    tuples;
   List.iter(*静的な配列*)
     (print_array oc_childe)
-    !HpAlloc.arrays;
+    arrays;
   Printf.fprintf oc_childe ".section\t\".text\"\n";
   Printf.fprintf oc_childe ".global\tmin_caml_start\n";
   Printf.fprintf oc_childe "min_caml_start:\n";

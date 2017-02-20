@@ -26,7 +26,7 @@ emit_knormal.ml alpha.mli alpha.ml for_check.ml for_check.mli beta.mli beta.ml a
 varCatego.ml  array_tree.ml rw_g.ml categorize.ml notW_hypo.ml   mk_rw_graph.ml mk_parallel.ml accum.ml parallelize.ml\
 inline.mli inline.ml unique_constdef.ml unique_constdef.mli constFold.mli constFold.ml elim.mli elim.ml hpAlloc.mli hpAlloc.ml\
 closure.mli closure.ml emit_closure.ml asm.mli asm.ml virtual.mli virtual.ml simm.mli simm.ml multosll.mli multosll.ml emit_asm.ml\
-regAlloc.mli regAlloc.ml emit.mli emit.ml \
+regAlloc.mli regAlloc.ml effective_data.ml  emit.mli emit.ml \
 main.mli main.ml
 
 # ↓テストプログラムが増えたら、これも増やす
