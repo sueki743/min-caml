@@ -8,6 +8,16 @@ let rec iter n e = (* 最適化処理をくりかえす (caml2html: main_iter) *)
   if e = e' then e else
   iter (n - 1) e'
 
+
+let rec iter_nonrec n e =       (* 非再帰関数を無条件に展開 *)
+  Format.eprintf "iteration_norec %d@." n;
+  if n = 0 then e else
+    let e'=Elim.f (ConstFold.f (Inline_nonrec.f (Assoc.f (Beta.f e))))
+    in
+  if e = e' then e else
+  iter_nonrec (n - 1) e'
+
+       
 let lexbuf outchan oc_childe outchan2 outchan3 outchan4 l glb_l= (* バッファをコンパイルしてチャンネルへ出力する (caml2html: main_lexbuf) *)
   Id.counter := 0;
   Typing.extenv := M.empty;
@@ -24,7 +34,7 @@ let lexbuf outchan oc_childe outchan2 outchan3 outchan4 l glb_l= (* バッファをコ
                       (Emit_knormal.f
                          outchan3
 		         (iter !limit
-              
+                               (iter_nonrec !limit
                                 (Parallelize.f
                                (Emit_knormal.f
                                   outchan3
@@ -40,7 +50,7 @@ let lexbuf outchan oc_childe outchan2 outchan3 outchan4 l glb_l= (* バッファをコ
 			                   (Typing.f
                                               (Joinglb.f
 			                         (Parser.exp Lexer.token l)
-                                                 (Parser.exp Lexer.token glb_l))))))))))))))))))))
+                                                 (Parser.exp Lexer.token glb_l)))))))))))))))))))))
 
          
 let string s glbchan = lexbuf stdout stdout stdout stdout stdout (Lexing.from_string s) (Lexing.from_channel glbchan) (* 文字列をコンパイルして標準出力に表示する (caml2html: main_string) *)

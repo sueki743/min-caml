@@ -24,9 +24,9 @@ let rec g env = function (* インライン展開ルーチン本体 (caml2html: inline_g) *)
   | Let(xt, e1, e2) -> Let(xt, g env e1, g env e2)
   | Let_Ref(xt,e1,e2) ->Let_Ref(xt,g env e1,g env e2)
   | LetRec({ name = (x, t); args = yts; body = e1 }, e2) -> (* 関数定義の場合 (caml2html: inline_letrec) *)
-     let env = if (S.mem x (fv e1))(*||(loop_exit e1)(*再帰関数か判定*)*)
-               then env
-               else if (size e1) > !threshold
+     let env = (* if (S.mem x (fv e1))(\*||(loop_exit e1)(\*再帰関数か判定*\)*\) *)
+               (* then env *)
+               (* else  *)if (size e1) > !threshold
                then env
                else M.add x (yts, e1) env in
       LetRec({ name = (x, t); args = yts; body = g env e1}, g env e2)
