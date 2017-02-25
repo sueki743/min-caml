@@ -491,11 +491,12 @@ let f oc oc_childe (Prog(data, fundefs,parallel, e)) =
   List.iter (fun fundef -> h oc fundef) fundefs;
   
   Printf.fprintf oc "entry_point:\n";
+  Printf.fprintf oc "\tmovi\t%%r0, 0xaa\n";
+  Printf.fprintf oc "\tout\t%%r0\n";
   stackset := M.empty;
   stackmap := [];
   g oc (Ans(Nop)) (NonTail(regs.(0)), e);
   Printf.fprintf oc "\tin\t%%r1\n";
-  Printf.fprintf oc "\tj\tmin_caml_start\n";
   
 
 
